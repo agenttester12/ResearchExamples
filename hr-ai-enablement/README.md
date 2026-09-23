@@ -6,6 +6,10 @@ A working project for evaluating and delivering AI-enabled HR capabilities in a 
 
 This workstream is maintained in the ResearchExamples Git repository. GitHub Desktop repository registration is separate from adding a local project in Codex.
 
+## Current direction
+
+Claude is the initial HR workspace for research, reporting, analysis, transactions, and purpose-built apps. Copilot Studio is reserved for future agent efforts. Start with the [workspace, application platform, and SDLC plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md), then review the transaction research below.
+
 ## Review order and document inventory
 
 | Order | Document | What to review |
@@ -16,7 +20,7 @@ This workstream is maintained in the ResearchExamples Git repository. GitHub Des
 | 4 | [Architecture and enforcement guide](workstreams/01-hr-transactions/research/hr-architecture-and-enforcement.md) | Detailed diagrams, OAuth, distribution, approval state, and acceptance tests by approach |
 | 5 | [Workday SOAP versus REST wrapper](workstreams/01-hr-transactions/research/workday-soap-versus-rest-wrapper.md) | Microsoft ESS sample inspection, direct SOAP versus wrapper tradeoffs, and updated authentication assumptions |
 
-This README is the sixth document: the project overview and reading guide. The original four research documents were reviewed by specialist subagents; their review records and limitations remain in the documents. This index only organizes that work.
+The new workstream adds a sixth substantive research document. This README is the seventh document: the project overview and reading guide. The original four research documents were reviewed by specialist subagents; their review records and limitations remain in the documents. This index only organizes that work.
 
 ## Where the different approaches are covered
 
@@ -37,7 +41,7 @@ APIs, MCP, tools, and agent platforms are different layers and can be combined. 
 | Workstream | Status | Scope |
 |---|---|---|
 | 01 — HR transactions and interface evaluation | Research completed; decisions and pilot remain open | Four reviewed research documents plus the SOAP-versus-wrapper technical note |
-| 02 — Rapid development | Proposed next workstream; not started | Executable operation contract, one complete prototype, and evaluation evidence |
+| 02 — HR workspace and rapid development | Architecture/SDLC research drafted and reviewed; implementation not started | [Application platform and SDLC](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md); Azure hosting, shared identity, secure pipelines, and company precedents |
 | Further workstreams | To be defined with the project owner | This structure does not assume that HR transactions describe the whole initiative |
 
 Cross-cutting concerns include identity, security, regional data handling, integration ownership, training, support, and measurement. Their initial research is included in workstream 01; project-wide requirements should be established as the broader scope becomes clear.

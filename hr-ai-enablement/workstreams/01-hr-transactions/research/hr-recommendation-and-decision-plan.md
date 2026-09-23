@@ -1,5 +1,7 @@
 # Recommendation: A Governed HR Transaction Service with a Choice of Agent Interface
 
+> **Scope update — 23 September 2026:** Claude is the proposed entry point for broader HR research, reporting, analysis, transactions, and apps. Copilot Studio is a future agent option rather than an immediate comparison gate. Read the [HR workspace, application platform, and SDLC plan](../../02-rapid-development/hr-workspace-app-platform-and-sdlc.md) for the current wider direction. This document retains the detailed transaction/vendor research.
+
 **Date:** 23 September 2026  
 **Status:** Recommended direction for a controlled evaluation; not authorization to deploy production HR writes  
 **Audience:** HR leadership, HR technology, enterprise architecture, identity, security, and regional operations

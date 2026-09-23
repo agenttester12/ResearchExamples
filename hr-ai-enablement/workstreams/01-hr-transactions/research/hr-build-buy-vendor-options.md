@@ -1,5 +1,7 @@
 # HR Transaction Interfaces: Build, Buy, and Hybrid Options
 
+> **Scope update — 23 September 2026:** Claude is the proposed entry point for broader HR research, reporting, analysis, transactions, and apps. Copilot Studio is a future agent option rather than an immediate comparison gate. Read the [HR workspace, application platform, and SDLC plan](../../02-rapid-development/hr-workspace-app-platform-and-sdlc.md) for the current wider direction. This document retains the detailed transaction/vendor research.
+
 **Research date:** 23 September 2026  
 **Scope:** CData Workday MCP, Microsoft Copilot Studio, Workato, Workday-native tools, Boomi, MuleSoft, and Azure API Management  
 **Related documents:** [Global HR plan](claude-desktop-global-hr-plan.md) · [Architecture and enforcement diagrams](hr-architecture-and-enforcement.md)
