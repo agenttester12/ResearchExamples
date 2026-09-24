@@ -29,9 +29,7 @@ The recommended integration approach is to expose approved business capabilities
 
 Our existing SOAP-to-REST wrapper supports user, ISU, and OAuth authentication. We recommend evaluating it as the integration layer before considering a second transport adapter. We still need to inspect and test its token handling, authorization boundaries, service coverage, error mapping, and retry behavior.
 
-Our Claude Code setup uses Amazon Bedrock. Claude Desktop’s deployment, licensing, model-processing arrangement and controls remain for IT to determine. These are separate client decisions: the Code configuration does not establish how Desktop would run. The potential population is approximately 45,000 employees plus contractors; the proposed initial HR pilot is a subset. This proposal leaves the corporate IdP, application cloud, and approved model data boundaries open. [Claude Code on Bedrock](https://code.claude.com/docs/en/amazon-bedrock)
-
-Diagrams and component choices are proposed. “Must” identifies a security or correctness requirement if we adopt the design. Hosting, identity routes, scope, and rollout remain open for review.
+IT owns the Claude Desktop setup. Our design covers the HR integration and services behind it, for a potential population of 45,000 employees plus contractors, starting with an HR pilot.
 
 ### Recommendations for review
 
@@ -130,7 +128,7 @@ The proposed executor would independently validate the human actor and approved 
 
 Remote connector calls originate from Claude's cloud infrastructure, including when the user works in Desktop. The laptop's VPN does not make an internal endpoint reachable to that client. We would use an approved reachable ingress path. If that is prohibited, we would evaluate an explicitly approved local-adapter or custom-application path rather than assume a private Desktop connector feature exists. [R1](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
 
-The data returned by tools may enter Claude's conversation and processing context. Hosting the wrapper or MCP service in AWS or Azure does not determine Claude Desktop model processing or end-to-end data residency.
+Tool outputs enter the client’s processing context, so each tool should return only the HR data needed for the task.
 
 ## 5. Proposed MCP distribution and operation
 
@@ -500,7 +498,7 @@ A managed service can add compute; it cannot increase Workday quotas or fix an i
 
 ### Hosting choices
 
-Model hosting and MCP service hosting are separate choices. Claude Code using Bedrock is useful context, but does not establish an approved AWS application landing zone, a Desktop hosting model, or the location of our wrapper.
+Choose application hosting based on the supported enterprise platform, connectivity to the wrapper, and regional requirements.
 
 | Option | Best fit | Tradeoff and condition |
 |---|---|---|
@@ -576,9 +574,9 @@ For the custom web app, the browser would redirect to our IdP and back to the ap
 
 ### Where Bedrock and Microsoft Foundry fit
 
-A custom application could use Bedrock model APIs with tool use if that use case, model and data boundary are approved. Our existing Claude Code setup does not automatically authorize HR runtime traffic or provide a Desktop replacement. [Bedrock tool use](https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html)
+For the custom-app alternative, Bedrock model APIs can support tool calling. [Bedrock tool use](https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html)
 
-In the Azure option, Azure would host our application and integration services. Microsoft Foundry can provide model deployments/API access for a custom application. It does not by itself provide the Desktop UI, redirect Desktop's model traffic, distribute our Desktop connector, or authorize HR transactions.
+Microsoft Foundry is another model API option for the custom application. The application would use the same HR business APIs, authorization and transaction controls described above.
 
 Current Microsoft documentation distinguishes Anthropic-hosted and Azure-hosted Claude offerings in Foundry. Model/version availability and lifecycle differ; the Azure-hosted version is documented as GA. We would select a specific eligible model/deployment and validate region, quota, purchasing terms, processing boundaries, and feature support. We would not assume every Foundry Claude endpoint runs entirely in Azure or that an Azure region name guarantees the required processing boundary. [R12](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models), [R13](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/how-to/use-foundry-models-claude)
 
@@ -692,7 +690,7 @@ The [success measures and evaluation plan](evaluation-and-success-plan.md) defin
 
 We recommend one SDLC for the service and rapidly developed HR applications. For runtime AI features, we would add versioned behavioral evaluations and monitoring to the normal SDLC. A form or dashboard built with Claude Code but containing no runtime AI needs application/security tests; it does not need an agent framework.
 
-Claude Code on Bedrock can assist implementation, tests and documentation. Development should use scoped nonproduction access and synthetic data. Generated code, tool descriptions and infrastructure changes would enter the same review and release path as manually written changes.
+Development should use scoped nonproduction access and synthetic data. Generated code, tool descriptions and infrastructure changes would enter the same review and release path as manually written changes.
 
 | Stage | Proposed automation and evidence |
 |---|---|
@@ -716,7 +714,7 @@ The earlier [rapid-development research](workstreams/02-rapid-development/hr-wor
 
 ## 14. Decisions we need to close
 
-1. Which Desktop offering, model-processing arrangement, organization/plan, client versions, connector controls and network path does IT approve?
+1. What client version, connector configuration and network requirements should the integration support, based on IT’s Desktop setup?
 2. Which corporate IdP and authorization server will issue tokens for our MCP resource?
 3. Which exact delegated mechanism does the wrapper support for each Workday operation? Does it require a separately linked user grant?
 4. Where does the wrapper currently store/refresh credentials, and how does it verify trusted caller context?
