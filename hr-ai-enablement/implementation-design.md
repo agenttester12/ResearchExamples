@@ -596,6 +596,14 @@ We would verify that expiry or failure of a user's backend connection produces a
 
 We would be able to disable one operation, one region, one caller, or all writes at our service. We would fail closed when required authorization or durable approval/audit evidence is unavailable, while retaining safe status/reconciliation access. We would keep the existing HR interface available for fallback.
 
+### Measuring success and evaluating changes
+
+The proposed evaluation approach separates verified task completion, answer quality, human effort, access-control failures, reliability/cost, and adoption. Backend evidence would determine transaction success; a positive response from Claude would not. Results should be segmented by supported jurisdiction, language, role and operation, with sample sizes and coverage gaps visible.
+
+We should combine deterministic service/security tests, multi-turn model evaluations, actual Desktop acceptance tests, and monitored pilot outcomes. MCP logs alone cannot establish final-answer quality or all conversation outcomes. Follow-up questions, OAuth refresh, revoked access, regional policy differences and ambiguous writes belong in the test suite.
+
+The [success measures and evaluation plan](evaluation-and-success-plan.md) defines the scorecard, company examples, global test coverage, telemetry boundaries, tooling options and proposed release gates. It includes a measurement-flow diagram and distinguishes component evaluations from actual Desktop behavior.
+
 ### SDLC and deployment
 
 We would use a supported application template, synthetic test data, code review, required checks, dependency/secret/IaC/image scanning as relevant, and targeted authorization/integration tests. Under this proposal, AI-generated code would follow the same release process as manually written code. Scanners do not establish correct HR policy.

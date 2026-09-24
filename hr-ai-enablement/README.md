@@ -10,6 +10,8 @@ This workstream is maintained in the ResearchExamples Git repository. GitHub Des
 
 Read [HR Workspace in Claude Desktop — Proposed Implementation Design](implementation-design.md) first. This is our consolidated team-facing implementation proposal, combining the supplied draft and the earlier research. It covers named company examples and GitHub references, OAuth and backend credentials, ISU routing, distribution, seven architecture, sequence, and decision diagrams, Azure hosting, alternatives when MCP is not approved, and architecture decisions, contracts, and failure recovery. Earlier research remains supporting evidence; the consolidated proposal is the current design-review reference.
 
+Read the [success measures and evaluation plan](evaluation-and-success-plan.md) next for the proposed scorecard, global evaluation coverage, and pilot release gates.
+
 ## Current direction
 
 Claude is the initial HR workspace for research, reporting, analysis, transactions, and purpose-built apps. Copilot Studio is reserved for future agent efforts. After the consolidated design, review the [workspace, application platform, and SDLC plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md) for the broader application-development workstream, followed by the supporting transaction research below.
@@ -24,7 +26,7 @@ Claude is the initial HR workspace for research, reporting, analysis, transactio
 | 4 | [Architecture and enforcement guide](workstreams/01-hr-transactions/research/hr-architecture-and-enforcement.md) | Detailed diagrams, OAuth, distribution, approval state, and acceptance tests by approach |
 | 5 | [Workday SOAP versus REST wrapper](workstreams/01-hr-transactions/research/workday-soap-versus-rest-wrapper.md) | Microsoft ESS sample inspection, direct SOAP versus wrapper tradeoffs, and updated authentication assumptions |
 
-The repository contains the consolidated implementation design, six supporting research documents, and this project overview and reading guide. The original four research documents were reviewed by specialist subagents; their review records and limitations remain in the documents. This index only organizes that work.
+The repository contains the consolidated implementation design, a success measures and evaluation plan, six supporting research documents, and this project overview and reading guide. The original four research documents were reviewed by specialist subagents; their review records and limitations remain in the documents. This index only organizes that work.
 
 ## Where the different approaches are covered
 
