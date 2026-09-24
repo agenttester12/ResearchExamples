@@ -215,6 +215,65 @@ If compatible delegation is unavailable, we would connect the user's Workday acc
 
 We would aim to avoid repeated login during normal use, with supported refresh and token caching. Consent, session expiry, revocation, conditional access, or an unconnected backend may require another browser interaction.
 
+### Follow-up questions, refresh, and returning later
+
+The proposed experience is to connect once and continue asking questions while the relevant grants remain valid. Each tool call is still authenticated and authorized. Conversation history, an MCP session ID, and a previous successful answer do not grant access to a later request.
+
+| Situation | Proposed handling | Browser interaction |
+|---|---|---|
+| Follow-up question needs no protected data | Claude can answer from permitted conversation context; no backend request is needed | None |
+| Follow-up needs current HR data | The OAuth client attaches its valid MCP access token to the new request; our service checks current access and resolves the operation's backend credential | None while credentials remain usable |
+| MCP access token expires | The Claude OAuth client obtains a replacement using its refresh grant, if issued and supported; our MCP resource service does not hold or refresh that client grant | Only if refresh is unavailable, rejected, or additional authentication is required |
+| Backend user token expires | Our credential broker refreshes the linked backend grant or uses the configured supported delegation flow | Only if backend reconnection or additional authentication is required |
+| User returns in a new conversation or after restarting Desktop | The client may reuse a retained connector grant; our backend grant is associated with the verified user, not a chat ID | Depends on actual client persistence, grant lifetime, and policy; test this explicitly |
+| Access is revoked or the user disconnects | Deny new execution and apply the relevant disconnect/revocation policy | Reauthentication cannot override denied permissions |
+
+The MCP access token belongs in the HTTP authorization header on every protected request. If an MCP refresh token is issued, custody stays with the OAuth client, separate from the backend refresh tokens held by our broker. The exact Claude retention, reconnect, and return-to-app experience is a client acceptance test, not storage behavior we control. [MCP authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
+
+A connector disconnect, a backend-account unlink, and an IdP logout are distinct events. The design needs explicit handling for each; we should not assume one automatically revokes the others. Cached HR content in a conversation also does not disappear merely because a backend grant is revoked. This is a separate retention and access consideration.
+
+```mermaid
+sequenceDiagram
+    actor U as HR user
+    participant C as Claude OAuth and MCP client
+    participant A as MCP authorization server
+    participant M as HR MCP service
+    participant B as Backend credential broker
+    participant I as Backend authorization server
+    participant W as Wrapper and HR backend
+    U->>C: Ask a follow-up requiring current HR data
+    opt MCP token expired and refresh is supported
+        C->>A: Refresh client grant
+        A-->>C: Replacement MCP token or reauthentication required
+    end
+    alt Usable MCP access token
+        C->>M: New tool call with bearer token
+        M->>M: Validate token and current operation permissions
+        alt Request is authorized
+            M->>B: Resolve fixed credential policy for verified user
+            opt Backend user token expired
+                B->>I: Supported refresh or delegation
+                I-->>B: Backend token or reconnection required
+            end
+            alt Usable backend credential
+                B->>W: Authorized operation
+                W-->>M: Current result or execution status
+                M-->>C: Minimized result
+                C-->>U: Answer
+            else Backend connection required
+                M-->>C: Stop and provide secure connection instructions
+                C-->>U: Complete backend connection then retry
+            end
+        else Access denied
+            M-->>C: Denied with no backend execution
+        end
+    else MCP login required
+        C-->>U: Reconnect through browser authorization
+    end
+```
+
+The refresh branches represent conditional flows, not a promise that all grants are renewable. If a write was already submitted before a connection failure, the next action is status reconciliation—not automatic replay of the write.
+
 ## 7. Token and credential sequences
 
 ### A. User-delegated operation
@@ -223,15 +282,19 @@ We would aim to avoid repeated login during normal use, with supported refresh a
 sequenceDiagram
     actor U as HR user
     participant C as Claude OAuth and MCP client
+    participant Browser as User browser
     participant AS as Our authorization service
     participant M as HR MCP service
     participant B as Credential broker
     participant I as Backend authorization server
     participant W as Wrapper and backend
     U->>C: Connect HR connector
-    C->>AS: Browser authorization with PKCE
-    AS-->>C: Authorization code to registered callback
-    C->>AS: Redeem code
+    C->>Browser: Open authorization URL with PKCE challenge
+    Browser->>AS: Authenticate and complete required consent
+    AS-->>Browser: Redirect to registered client callback with code
+    Browser->>C: Deliver code and state to client callback
+    C->>C: Validate authorization response
+    C->>AS: Redeem code with PKCE verifier
     AS-->>C: Access token for HR MCP resource
     U->>C: Request permitted lookup or approved action
     C->>M: Tool call with MCP token in transport
@@ -253,6 +316,8 @@ sequenceDiagram
         M-->>C: Minimized result without credentials
     end
 ```
+
+The first redirect terminates at the callback registered for the Claude OAuth client. It is not necessarily a local Desktop URL. The client exchanges the code through the token endpoint; tokens are not passed through the conversation. We need to verify how the supported client returns the user to Desktop and whether the user must retry the original request.
 
 When a backend connection is required, that invocation stops without executing the operation. After the browser connection succeeds, a fresh request repeats authorization and obtains the valid backend credential.
 
@@ -389,6 +454,21 @@ We would not assume the current MCP tunnels feature solves Desktop private netwo
 
 We have not established an arbitrary direct-REST tool configuration in stock Claude Desktop that replaces custom MCP. Browser automation, extensions, and other connectors would each require their own review; they are not implicit approved substitutes.
 
+### Choosing an alternative
+
+```mermaid
+flowchart TD
+    Start{What is disallowed?}
+    Start -->|Only cloud ingress| Local[Evaluate managed local MCP if protocol and data use are approved]
+    Start -->|MCP or custom connectors| AI{Is an AI application approved for the data?}
+    AI -->|Yes| App[SSO web app with direct REST APIs and model tool calling]
+    AI -->|No| Forms[SSO forms and reports without model access]
+    Start -->|Selected model data boundary| Boundary[Evaluate an approved model boundary or deterministic forms]
+    App --> Shared[Shared business API, credential broker and transaction controls]
+    Forms --> Shared
+    Local --> Shared
+```
+
 ### The custom application path
 
 ```mermaid
@@ -405,6 +485,8 @@ flowchart LR
 ```
 
 The model proposes a tool call. Our backend validates and executes the allowed business operation. We do not need MCP for this route, and we do not send HR tokens to the model. Deterministic forms can call the same API without any model involvement.
+
+For the custom web app, the browser would redirect to our IdP and back to the app's registered callback. A server-side application session with a Secure, HttpOnly cookie would keep subsequent questions signed in, subject to session and access policy. Backend tokens would remain in the server-side broker. Each API request would still require authorization; cookie-authenticated state changes also need CSRF protection. Foundry would receive model requests, not HR credentials. This route replaces the conversational interface and MCP transport while reusing the proposed business controls.
 
 ### Where Microsoft Foundry fits
 

@@ -8,7 +8,7 @@ This workstream is maintained in the ResearchExamples Git repository. GitHub Des
 
 ## Main implementation document
 
-Read [HR Workspace in Claude Desktop — Proposed Implementation Design](implementation-design.md) first. This is our consolidated team-facing implementation proposal, combining the supplied draft and the earlier research. It covers named company examples and GitHub references, OAuth and backend credentials, ISU routing, distribution, five architecture/sequence diagrams, Azure hosting, alternatives when MCP is not approved, and architecture decisions, contracts, and failure recovery. Earlier research remains supporting evidence; the consolidated proposal is the current design-review reference.
+Read [HR Workspace in Claude Desktop — Proposed Implementation Design](implementation-design.md) first. This is our consolidated team-facing implementation proposal, combining the supplied draft and the earlier research. It covers named company examples and GitHub references, OAuth and backend credentials, ISU routing, distribution, seven architecture, sequence, and decision diagrams, Azure hosting, alternatives when MCP is not approved, and architecture decisions, contracts, and failure recovery. Earlier research remains supporting evidence; the consolidated proposal is the current design-review reference.
 
 ## Current direction
 
