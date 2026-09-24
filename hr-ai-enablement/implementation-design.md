@@ -31,9 +31,7 @@ Our existing SOAP-to-REST wrapper supports user, ISU, and OAuth authentication. 
 
 IT ownership of Claude Desktop is part of our stated context. This proposal describes how we could make our HR connector available and operate the services behind it. We do not assume a particular corporate identity provider, an existing Azure deployment, or approval to send HR data to any model service.
 
-### How to read this proposal
-
-Our stated context is that IT handles Claude Desktop and our existing wrapper supports user, ISU, and OAuth authentication. The architecture below is a recommendation for evaluation, not a record of decisions already made. Diagrams illustrate candidate flows; tables identify proposed components and controls. “Must” identifies a security or correctness requirement that an implementation would need to satisfy, not approval to proceed. Open decisions and validation gates remain explicit.
+Diagrams and component choices are proposed. “Must” identifies a security or correctness requirement if we adopt the design. Hosting, identity routes, scope, and rollout remain open for review.
 
 ### Recommendations for review
 
@@ -52,14 +50,14 @@ Our stated context is that IT handles Claude Desktop and our existing wrapper su
 
 ## 2. What other companies and practitioners are doing
 
-We are not starting from an untested idea, but we need to distinguish evidence of a working pattern from proof that our controls are already solved. We would use the following examples to inform our architecture and pilot—not to infer our own delivery dates, security posture, or vendor entitlements.
+The examples below provide evidence for individual patterns, not a complete production reference for our HR implementation.
 
 ### Named organizations and documented patterns
 
 | Organization | What is publicly described | What we take into our design | Evidence boundary and links |
 |---|---|---|---|
 | **Jamf** | Broad employee use of Claude Enterprise, HR use cases, reusable skills, and employee-built dashboards. Its governance separates ordinary approved use, configured skills/MCP, and custom API applications. | We would support research and reporting alongside transactions, with review proportional to what is being connected or deployed. | Vendor case study; reports 21 implemented HR use cases. Its API layer uses Bedrock, not our proposed Azure deployment. It does not prove our transaction controls. [Case study](https://claude.com/customers/jamf) |
-| **Block** | Its goose agent connects employees to data and internal tools, including natural-language analytics, prototypes, and operational actions. | We would separate the employee interface from reusable business capabilities and retain a curated tool catalog. | Vendor case study; the interface is goose, not Claude Desktop. The code is inspectable; the former `block/goose` link now redirects to `aaif-goose/goose`. Neither proves end-user delegation to every backend. [Case study](https://claude.com/customers/block), [GitHub](https://github.com/aaif-goose/goose) |
+| **Block** | Its goose agent connects employees to data and internal tools, including natural-language analytics, prototypes, and operational actions. | We would separate the employee interface from reusable business capabilities and retain a curated tool catalog. | Vendor case study; the interface is goose, not Claude Desktop. Its public code does not establish end-user delegation to every backend. [Case study](https://claude.com/customers/block), [GitHub](https://github.com/aaif-goose/goose) |
 | **Workato** | Claude/MCP is used across connected business systems; its Workday End User template lists time-off submission, cancellation, and manager approval/rejection. | We would evaluate tools as complete business operations, including the executing identity and native process outcome. | A case study and documented product template are different evidence types. Self-service and manager actions do not establish arbitrary HR-administrator access. [Case study](https://claude.com/customers/workato), [Workday tool documentation](https://docs.workato.com/en/mcp/prebuilt-mcps/workday-end-user-mcp-server) |
 | **Microsoft** | Its Employee Self-Service rollout guidance describes a configured enterprise agent, while public Workday samples show concrete lookup and time-off topic/template patterns. | We would reuse the pattern of explicit inputs, configured service calls, and backend permissions. We would keep Copilot Studio as a future channel rather than a current prerequisite. | Internal rollout guidance is not proof that every listed third-party integration was deployed internally. Samples require the ESS runtime and tenant configuration; they are not standalone Desktop tools. [Deployment account](https://www.microsoft.com/insidetrack/blog/deploying-the-employee-self-service-agent-our-blueprint-for-enterprise-scale-success/), [Workday samples](https://github.com/microsoft/CopilotStudioSamples/tree/main/EmployeeSelfServiceAgent/Workday) |
 | **Workday** | AI Conversation Bridge separates messaging channels, orchestration, MCP, and Workday integration. | We would preserve the same interface/backend separation so we can change the front end without rewriting business rules. | Official-organization reference repository; its included MCP server returns mock Workday data. Production requires a real integration. It is not evidence of a completed Claude Desktop deployment. [GitHub](https://github.com/Workday/ai-conversation-bridge), [architecture](https://github.com/Workday/ai-conversation-bridge/blob/main/docs/architecture.md) |
@@ -69,24 +67,19 @@ We are not starting from an untested idea, but we need to distinguish evidence o
 
 ### Repositories and concrete implementation examples to inspect
 
-We would inspect specific components rather than treat a repository's existence as approval to deploy it.
+The following references add concrete transaction and authentication examples to the repositories linked above.
 
 | Reference | What we should inspect | What we should not copy without validation |
 |---|---|---|
 | [Microsoft vacation-balance sample](https://github.com/microsoft/CopilotStudioSamples/tree/main/EmployeeSelfServiceAgent/Workday/EmployeeScenarios/EmployeeGetVacationBalance) | `topic.yaml`, authenticated employee-context binding, `authType=User`, the versioned SOAP request, and response extraction | Assumptions about shared execution, repeated-value alignment, display formatting, or supported tenant permissions |
 | [Microsoft request-time-off sample](https://github.com/microsoft/CopilotStudioSamples/tree/main/EmployeeSelfServiceAgent/Workday/EmployeeScenarios/WorkdayEmployeeRequestTimeOff) | Structured input, tenant-specific time-off types, common execution, and success/error handling | A sample form submission as proof of our immutable approval or duplicate-prevention requirements |
-| [Workday AI Conversation Bridge](https://github.com/Workday/ai-conversation-bridge) | Channel adapter boundaries, orchestration interface, and mock tool contracts | Demo deployment access settings, mock authentication/data, or deprecated components as a production baseline |
-| [goose](https://github.com/aaif-goose/goose) | Agent/tool separation, extension interfaces, and client behavior | Assuming a capability in goose exists in Claude Desktop, or adopting broad shell execution for HR production |
-| [CData Workday MCP](https://github.com/CDataSoftware/workday-mcp-server-by-cdata) | Local packaging and the boundary between the MCP server and source driver | Read/write capability or enterprise controls inferred from unrelated commercial products |
 | [Workday CLI by favalos](https://github.com/favalos/workday_cli) | Browser OAuth and the separation of business commands from Workday API calls | Community-maintained code as a supported Workday security/approval implementation |
 
-We would pin the reviewed commit/version, check the license and dependencies, inspect secret and network handling, and run only with synthetic data and test credentials during evaluation. These references are evaluation material; this proposal does not authorize their installation in production.
+Before adopting sample code, we should pin its version, review licensing, dependencies and credential handling, and test with synthetic data.
 
 ### Practitioner evidence
 
 A [Workday practitioner demonstration](https://www.reddit.com/r/workday/comments/1torbgo/claude_code_skills_for_workday/) describes using Claude Code with Workday commands for reference data, positions, and hire requests, and links to the CLI above. The author notes that approval steps were disabled for the demonstration. We would use this as evidence that conversational orchestration is practical, not as a transaction-control design. Claude Code is also a different client from Desktop.
-
-The key lesson across these examples is that the interface is reusable, while permissions and execution semantics remain system-specific. The strongest support for our plan is the combination of broad employee enablement, inspectable integration examples, and explicit operation-level controls. No example removes our need to prove delegated identity, regional data handling, approval integrity, and recovery.
 
 ## 3. Proposed initial scope and boundaries
 
@@ -104,7 +97,7 @@ A proposed first test slice would include one policy lookup, one authenticated b
 
 We recommend excluding payroll/banking changes, bulk changes, termination, and automated employment decisions from the initial release. We would not treat employee self-service tests as proof that an HR operator can safely act on another worker.
 
-Workday is our current integration focus. The supplied draft also mentions Client 360; we would add it only after confirming its API, identity mechanism, and selected use cases. We are not assuming that Workday and Client 360 support the same token exchange.
+Workday is the proposed first backend. Additional systems would need their own operation and identity assessment.
 
 ## 4. Proposed architecture
 
@@ -135,15 +128,15 @@ The boxes represent responsibilities, not a requirement to create a microservice
 
 The proposed executor would independently validate the human actor and approved proposal. A call from our application core would not be sufficient authority by itself. We would protect service-to-service calls, scope workload identities, restrict ingress, and prevent direct wrapper access from bypassing these controls.
 
-Remote connector calls originate from Claude's cloud infrastructure, including when the user works in Desktop. The laptop's VPN does not make an internal endpoint reachable to that client. We would use an approved reachable ingress path. If that is prohibited, we would evaluate an explicitly approved local-adapter or custom-application path rather than assume a private Desktop connector feature exists. [R1]
+Remote connector calls originate from Claude's cloud infrastructure, including when the user works in Desktop. The laptop's VPN does not make an internal endpoint reachable to that client. We would use an approved reachable ingress path. If that is prohibited, we would evaluate an explicitly approved local-adapter or custom-application path rather than assume a private Desktop connector feature exists. [R1](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
 
 The data returned by tools may enter Claude's conversation and processing context. Hosting the wrapper or MCP service in Azure does not move Claude Desktop model processing into Azure or establish regional residency for the complete flow.
 
 ## 5. Proposed MCP distribution and operation
 
-### Remote connector: our default
+### Recommended starting point: remote connector
 
-We would host a stable HTTPS endpoint, protect it with OAuth, and register it in our Claude organization. An authorized organization owner can add a custom web connector using the remote MCP URL. We would configure available roles and tools, then pilot connection and authorization with the selected users. Registration makes the connector available; it does not automatically establish backend permissions. [R1, R2]
+We would host a stable HTTPS endpoint, protect it with OAuth, and register it in our Claude organization. An authorized organization owner can add a custom web connector using the remote MCP URL. We would configure available roles and tools, then pilot connection and authorization with the selected users. Registration makes the connector available; it does not automatically establish backend permissions. [R1](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp), [R2](https://support.claude.com/en/articles/13930458-set-up-role-based-permissions-on-enterprise-plans)
 
 If the remote MCP approach is accepted, the proposed deployment sequence is:
 
@@ -156,17 +149,17 @@ If the remote MCP approach is accepted, the proposed deployment sequence is:
 
 We would release tool changes centrally through CI/CD. We would version schemas and policies, stage new operations, test client refresh behavior, and retain immediate server-side write disablement. A tool newly discovered in the wrapper would not become available automatically.
 
-Enterprise connector/tool controls shape what users and Claude can access. Cross-role grants can be additive; we would test actual effective access. Server-side authorization remains required even for a hidden or blocked tool. [R2]
+Enterprise connector/tool controls shape what users and Claude can access. Cross-role grants can be additive; we would test actual effective access. Server-side authorization remains required even for a hidden or blocked tool. [R2](https://support.claude.com/en/articles/13930458-set-up-role-based-permissions-on-enterprise-plans)
 
-Enterprise-managed connector authorization is a possible usability improvement, but we would confirm support for our IdP and connector before relying on it. The proposed baseline uses individual browser authorization, subject to client compatibility testing. We would not promise zero user prompts based on organization registration alone. [R3]
+Enterprise-managed connector authorization is a possible usability improvement, but we would confirm support for our IdP and connector before relying on it. The proposed baseline uses individual browser authorization, subject to client compatibility testing. We would not promise zero user prompts based on organization registration alone. [R3](https://support.claude.com/en/articles/15537633-authorize-mcp-connectors-for-your-entire-organization)
 
-### Local extension: an exception, not our baseline
+### Alternative: managed local adapter
 
-If remote networking is the obstacle and local MCP is explicitly approved, we can package a local stdio adapter for Desktop. It would call our protected central APIs over an approved device network path. We would distribute reviewed versions through the organizational desktop-extension controls and coordinate installation/update behavior with IT. [R4, R5]
+If remote networking is the obstacle and local MCP is explicitly approved, we can package a local stdio adapter for Desktop. It would call our protected central APIs over an approved device network path. We would distribute reviewed versions through the organizational desktop-extension controls and coordinate installation/update behavior with IT. [R4](https://support.claude.com/en/articles/11725091-when-to-use-desktop-and-web-connectors), [R5](https://support.claude.com/en/articles/12592343-enabling-and-using-the-desktop-extension-allowlist)
 
 For that design, a native-app browser flow with PKCE and OS-protected token storage can be appropriate. We would never distribute ISU passwords or an embedded confidential-client secret to laptops.
 
-Stdio avoids opening a local listener, but it does not eliminate endpoint compromise or package tampering. A client-managed process still needs packaging, dependency review, updates, and testing of startup/crash behavior. Transaction and approval state must remain durable in the central service, not only in a local process. A daemon is not required for the initial design; if introduced, its lifecycle and transport security need a separate decision.
+Stdio avoids opening a local listener, but it does not eliminate endpoint compromise or package tampering. A client-managed process still needs packaging, dependency review, updates, and testing of startup/crash behavior. Transaction and approval state must remain durable in the central service, not only in a local process.
 
 Local execution changes network origin; tool results may still be sent to Claude. It is not a workaround for a prohibition on sharing the data with the model.
 
@@ -182,7 +175,7 @@ We would correlate these identities where supported, but we would not treat them
 
 ### What “carry tokens forward” means
 
-We would carry trusted identity context through our services and obtain credentials valid for each destination. We would not forward the same bearer token indiscriminately across systems. MCP authorization requires tokens intended for the MCP resource; accepting or passing through unrelated third-party tokens is not our design. [R6, R7]
+We would carry trusted identity context through our services and obtain credentials valid for each destination. We would not forward the same bearer token indiscriminately across systems. MCP authorization requires tokens intended for the MCP resource; accepting or passing through unrelated third-party tokens is not our design. [R6](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization), [R7](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations)
 
 | Credential | Intended recipient | Storage/handling |
 |---|---|---|
@@ -199,13 +192,13 @@ Tokens are not tool arguments. We would not ask users to paste tokens, passwords
 
 ### Login to our MCP service
 
-The remote OAuth client discovers our authorization configuration, opens the authorization flow, and receives a resource-specific token after the user authenticates and applicable consent completes. We would use Authorization Code with PKCE and verify discovery, callback registration, and client-registration compatibility with the actual Claude client. We would not assume the latest protocol document guarantees every client feature. [R6]
+The remote OAuth client discovers our authorization configuration, opens the authorization flow, and receives a resource-specific token after the user authenticates and applicable consent completes. We would use Authorization Code with PKCE and verify discovery, callback registration, and client-registration compatibility with the actual Claude client. We would not assume the latest protocol document guarantees every client feature. [R6](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
 
 The browser returns to the registered client callback. If we operate an authorization broker in front of the corporate IdP, that broker has its own IdP callback. These are separate registrations. We would use exact approved redirect URIs and validate state/PKCE; credentials and codes would not be routed through chat.
 
 The proposed endpoint would validate issuer, audience/resource, expiry, signature or introspection, and required scopes. It would then evaluate current application permissions. OAuth scope is not a complete employee-population policy.
 
-The remote client may have a different OAuth registration model from a public native app. We would not apply the draft's blanket “no client secret” rule to all server-side integrations. Confidential-client secrets or certificates, if required, stay in protected server-side configuration. A local public client must not embed a reusable secret.
+The remote client may have a different OAuth registration model from a public native app. Confidential-client secrets or certificates, if required, stay in protected server-side configuration. A local public client must not embed a reusable secret.
 
 ### Choosing a backend authentication route
 
@@ -216,11 +209,11 @@ The remote client may have a different OAuth registration model from a public na
 | Linked user OAuth | We need a separate user authorization grant for the backend | Secure connection flow, account linking, refresh and revocation |
 | ISU Basic | The approved operation intentionally executes through a service account | Narrow ISU permissions, independent human authorization, approval and audit |
 
-Entra OBO uses a user access token intended for the middle tier to obtain another token for the downstream API. A token issued by an unrelated MCP broker cannot automatically be used as an Entra OBO assertion. Existing SSO does not establish that Workday accepts Entra OBO, and an Entra token is not automatically a Workday token. [R8]
+Entra OBO uses a user access token intended for the middle tier to obtain another token for the downstream API. A token issued by an unrelated MCP broker cannot automatically be used as an Entra OBO assertion. Existing SSO does not establish that Workday accepts Entra OBO, and an Entra token is not automatically a Workday token. [R8](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-on-behalf-of-flow)
 
-If compatible delegation is unavailable, we would connect the user's Workday account through a supported backend OAuth flow. Our server would bind connection initiation and callback to the authenticated caller, validate state and redirect URI, verify the linked backend identity, and store the resulting credentials securely. We would not link accounts solely from a model-supplied email address. The backend browser callback returns to our connection broker, not to an invented Claude callback.
+If compatible delegation is unavailable, we would connect the user's Workday account through a supported backend OAuth flow. Our server would bind connection initiation and callback to the authenticated caller, validate state and redirect URI, verify the linked backend identity, and store the resulting credentials securely. We would not link accounts solely from a model-supplied email address. The backend browser callback returns to our connection broker, rather than the Claude client callback.
 
-We would aim to avoid repeated login during normal use, with supported refresh and token caching. Consent, session expiry, revocation, conditional access, or an unconnected backend may require another browser interaction. “Authenticate once forever” is not a requirement we can promise.
+We would aim to avoid repeated login during normal use, with supported refresh and token caching. Consent, session expiry, revocation, conditional access, or an unconnected backend may require another browser interaction.
 
 ## 7. Token and credential sequences
 
@@ -330,9 +323,9 @@ We would use clear descriptions to improve tool selection. Descriptions and prom
 
 We would collect required fields through conversation or a supported structured-input surface, then validate them on the server. We would not assume that specification-level elicitation means our deployed Desktop version supports every form behavior. We would verify client capability before using it.
 
-Interactive MCP Apps are a documented option, rather than merely an undefined “extapp” experiment. We can evaluate them for richer forms, but would need to validate current client support, sandboxing, and data handling. The proposed first release would not depend on them. [R9, R10]
+Interactive MCP Apps are an option for richer forms. Their use would require validation of client support, sandboxing, and data handling. The proposed first release would not depend on them. [R9](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html), [R10](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude)
 
-We would test complete and partial-input schemas deliberately: missing required tool arguments may be rejected before our handler can collect them. We would not depend on an invalid tool call triggering a form. [R15]
+We would test complete and partial-input schemas deliberately: missing required tool arguments may be rejected before our handler can collect them. We would not depend on an invalid tool call triggering a form. [R15](https://modelcontextprotocol.io/specification/2025-11-25/client/elicitation)
 
 The recommended baseline for writes is an SSO-protected review page showing the worker, operation, current and proposed values, effective date, and native approval implications. A user must be authorized for that proposal, not merely signed in or in possession of its URL.
 
@@ -363,11 +356,11 @@ We would preserve native business-process approvals. Submitted is not completed.
 
 Approvals and status must survive Desktop closure and server restart. Logs alone are not transaction state. Some completed changes require a compensating business process rather than rollback.
 
-A slash command can be a useful entry convention where supported, but we would not treat it as an MCP authorization boundary. If deterministic per-request tool exposure becomes mandatory, we would use an application-controlled execution path. Claude documents Auto, Always available and On demand tool-loading modes; loading is not authorization. We would not rely on an assertion that every enabled tool is always visible or that a prompt can prevent every unwanted invocation. [R16]
+A slash command can be a useful entry convention where supported, but we would not treat it as an MCP authorization boundary. If deterministic per-request tool exposure becomes mandatory, we would use an application-controlled execution path. Claude documents Auto, Always available and On demand tool-loading modes; loading is not authorization. [R16](https://support.claude.com/en/articles/13730515-manage-claude-s-tool-access)
 
 ## 10. Hosting, storage, and security controls
 
-We would start with a small shared Azure deployment rather than one infrastructure stack per tool. Container Apps is a candidate for containerized APIs/workers; App Service is the alternative for a conventional web/API deployment. Functions fit scheduled or event-driven reconciliation and integration tasks. A modular monolith can run on either hosting platform. [R11]
+We would start with a small shared Azure deployment rather than one infrastructure stack per tool. Container Apps is a candidate for containerized APIs/workers; App Service is the alternative for a conventional web/API deployment. Functions fit scheduled or event-driven reconciliation and integration tasks. A modular monolith can run on either hosting platform. [R11](https://learn.microsoft.com/en-us/azure/container-apps/compare-options)
 
 The proposed logical components are the MCP/business application, approval page and durable store, restricted executor/credential broker, existing wrapper, audit/monitoring, and an optional queue/worker. We can combine compatible components while preserving privilege boundaries. We would use separate production and nonproduction identities/data, and approved regional boundaries where required.
 
@@ -375,7 +368,7 @@ Shared hosting does not imply shared privileges. We would use scoped workload id
 
 For reporting, we would prefer approved analytical datasets and defined metrics for broad analysis. We would authorize jobs and downloads, preserve units and effective dates, and prevent unbounded exports. Knowledge retrieval must filter access before returning content to Claude.
 
-We would audit caller, operation/version, permitted target, policy decision, proposal/approval reference, execution identity type, backend reference, and outcome. We would minimize personal data and redact secrets. We would not indiscriminately retain full HR requests, responses, or conversation contents because they are “audit logs.”
+We would audit caller, operation/version, permitted target, policy decision, proposal/approval reference, execution identity type, backend reference, and outcome. We would minimize personal data and redact secrets. Audit retention should exclude unnecessary HR payloads and conversation content.
 
 For global use, we would document conversation processing, tool traffic, storage, logs, credentials, backups, support access, and failover separately. No hosting label establishes end-to-end residency. We would test any required restriction on personal Claude accounts, other organizations, unmanaged devices, and off-network paths rather than assuming SSO proves it.
 
@@ -392,7 +385,7 @@ We would first identify what is actually disallowed, then select an approved arc
 | All AI access to HR data/actions is prohibited | Use deterministic SSO forms, reports, and native HR workflows without model involvement | AI-assisted development remains limited to separately permitted data/use boundaries |
 | MCP approval is pending | Build and test the REST business service, policy, forms, and execution first | MCP becomes a thin adapter when approved |
 
-We would not assume the current MCP tunnels feature solves Desktop private networking: its documentation describes research-preview API/Managed Agents use and states that Console-created tunnels are unavailable as claude.ai connectors. We would need separate evidence of support before choosing it for Desktop. [R17]
+We would not assume the current MCP tunnels feature solves Desktop private networking: its documentation describes research-preview API/Managed Agents use and states that Console-created tunnels are unavailable as claude.ai connectors. We would need separate evidence of support before choosing it for Desktop. [R17](https://platform.claude.com/docs/en/agents-and-tools/mcp-tunnels/overview)
 
 We have not established an arbitrary direct-REST tool configuration in stock Claude Desktop that replaces custom MCP. Browser automation, extensions, and other connectors would each require their own review; they are not implicit approved substitutes.
 
@@ -415,11 +408,11 @@ The model proposes a tool call. Our backend validates and executes the allowed b
 
 ### Where Microsoft Foundry fits
 
-Azure hosts our application and integration services. Microsoft Foundry can provide model deployments/API access for a custom application. It does not by itself provide the Desktop UI, redirect Desktop's model traffic, distribute our Desktop connector, or authorize HR transactions.
+In the Azure option, Azure would host our application and integration services. Microsoft Foundry can provide model deployments/API access for a custom application. It does not by itself provide the Desktop UI, redirect Desktop's model traffic, distribute our Desktop connector, or authorize HR transactions.
 
-Current Microsoft documentation distinguishes Anthropic-hosted and Azure-hosted Claude offerings in Foundry. Model/version availability and lifecycle differ; the Azure-hosted version is documented as GA. We would select a specific eligible model/deployment and validate region, quota, purchasing terms, processing boundaries, and feature support. We would not assume every Foundry Claude endpoint runs entirely in Azure or that an Azure region name guarantees the required processing boundary. [R12, R13]
+Current Microsoft documentation distinguishes Anthropic-hosted and Azure-hosted Claude offerings in Foundry. Model/version availability and lifecycle differ; the Azure-hosted version is documented as GA. We would select a specific eligible model/deployment and validate region, quota, purchasing terms, processing boundaries, and feature support. We would not assume every Foundry Claude endpoint runs entirely in Azure or that an Azure region name guarantees the required processing boundary. [R12](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models), [R13](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/how-to/use-foundry-models-claude)
 
-The current hosting comparison describes Global or available US Data Zone processing for Azure-hosted Claude, rather than automatic confinement to the resource region. It identifies Anthropic as seller, operator, and data processor for both hosting versions, with Marketplace billing. We would verify the exact terms and eligibility; Azure hosting is not a change to the provider contract by itself. [R18]
+The current hosting comparison describes Global or available US Data Zone processing for Azure-hosted Claude, rather than automatic confinement to the resource region. It identifies Anthropic as seller, operator, and data processor for both hosting versions, with Marketplace billing. We would verify the exact terms and eligibility; Azure hosting is not a change to the provider contract by itself. [R18](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models-hosting-comparison)
 
 Foundry Agent Service is optional if we need a managed agent runtime, subject to model/runtime compatibility; a simple application can use model tool calling with our own execution loop. Desktop licensing and model API consumption are separate planning items. Copilot Studio can later consume our REST APIs or MCP service if approved, without making it a prerequisite now.
 
@@ -427,7 +420,7 @@ Foundry Agent Service is optional if we need a managed agent runtime, subject to
 
 ### Candidate architecture decisions
 
-If a recommendation is accepted, we should record it as an architecture decision with an owner, evidence, and a revisit trigger. The following recommendations are not accepted architecture decisions. Each needs review before being recorded as an approved decision:
+The following table records the rationale and tradeoffs for review. Accepted choices should become architecture decisions with named owners.
 
 | Proposed choice | Rationale | Cost or limitation to assess | Alternative or reconsideration trigger |
 |---|---|---|---|
@@ -501,7 +494,7 @@ Load testing should cover peak concurrency, slow backend responses, token refres
 
 We would measure platform and business outcomes separately: API latency/error rates, dependency health, denied requests, token refresh failures, duplicate suppression, unresolved executions, authorized report delivery, and confirmed transaction completion. Metrics must not use employee IDs or sensitive values as high-cardinality labels.
 
-A recommended pilot readiness gate is that we can identify the deployed version, disable writes, reconcile uncertain outcomes, restore durable state, rotate/revoke credentials, and route users to the fallback. For an operation without authoritative status lookup, we would define a manual reconciliation runbook before enabling it—not after the first timeout.
+A recommended pilot readiness gate is that we can identify the deployed version, disable writes, reconcile uncertain outcomes, restore durable state, rotate/revoke credentials, and route users to the fallback. An operation without authoritative status lookup needs a manual reconciliation runbook before enablement.
 
 ## 13. Proposed implementation sequence and acceptance gates
 
@@ -525,9 +518,9 @@ We would be able to disable one operation, one region, one caller, or all writes
 
 We would use a supported application template, synthetic test data, code review, required checks, dependency/secret/IaC/image scanning as relevant, and targeted authorization/integration tests. Under this proposal, AI-generated code would follow the same release process as manually written code. Scanners do not establish correct HR policy.
 
-We would promote a reviewed immutable artifact, protect workflow and permission changes, use narrowly scoped deployment identities, and verify that required scans actually ran. Where GitHub Actions deploys to Azure, OIDC federation avoids storing long-lived Azure deployment passwords. Production approval and Azure permissions remain separate requirements. [R14]
+We would promote a reviewed immutable artifact, protect workflow and permission changes, use narrowly scoped deployment identities, and verify that required scans actually ran. Where GitHub Actions deploys to Azure, OIDC federation avoids storing long-lived Azure deployment passwords. Production approval and Azure permissions remain separate requirements. [R14](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure)
 
-The broader pipeline and shared-platform implementation is detailed in our [rapid-development plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md). This document defines the Desktop integration contract; it does not enable CI/CD or provision infrastructure.
+The broader pipeline and shared-platform implementation is detailed in our [rapid-development plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md).
 
 ## 14. Decisions we need to close
 
@@ -541,25 +534,11 @@ The broader pipeline and shared-platform implementation is detailed in our [rapi
 8. Which hosting, secret-management, logging, CI/CD, and model contracts can we reuse?
 9. If MCP is rejected, is the restriction about protocol, network, client, or model data handling?
 
-Implementation would require a named owner for application code, identity configuration, operation policy, release, and production reconciliation before pilot launch. Apart from the confirmed IT ownership of Desktop, this document does not assign responsibilities to unconfirmed teams or assume their processes.
+Implementation would require a named owner for application code, identity configuration, operation policy, release, and production reconciliation before pilot launch. Owners beyond IT’s Desktop responsibility remain to be agreed.
 
-## Appendix A. How this consolidates the supplied draft
+## References
 
-| Draft point | Our implementation position |
-|---|---|
-| Local per-session stdio as the default | Remote centrally operated MCP is the recommended default; local stdio is an explicitly approved network/deployment alternative |
-| OS keychain for tokens | Appropriate for a local native adapter; remote backend grants and ISU credentials belong in protected server storage |
-| One SSO login implies downstream OBO | We would prove each resource's supported token flow; separate backend account linking may be necessary |
-| No persistent state needed | Writes require durable proposals, approvals, deduplication and reconciliation regardless of Desktop lifetime |
-| Stdio removes local risk | It removes the listener, not endpoint compromise, dependency, tampering, or credential risks |
-| Elicitation automatically renders forms | We would verify negotiated client support; the proposed baseline review page is independent of elicitation |
-| MCP Apps only an emerging undefined extension | We recognize the documented extension and current Claude interactive connector support; our use still needs testing |
-| Slash commands/descriptions control invocation | They may guide UX, but permission checks and approval govern effects; custom-app control is available for stricter gating |
-| Audit complete parameters/responses | We would capture necessary correlated evidence with redaction and defined retention |
-
-## Appendix B. Primary references
-
-Sources were checked for this consolidation. Product eligibility, model lifecycle, protocol support and contracts must be revalidated against our actual deployment.
+Product documentation was checked on the document date. Client behavior, backend delegation, regional processing and transaction recovery still require testing in our environment.
 
 - **R1:** [Claude remote custom connectors and network requirements](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
 - **R2:** [Claude Enterprise role and connector permissions](https://support.claude.com/en/articles/13930458-set-up-role-based-permissions-on-enterprise-plans)
@@ -580,11 +559,3 @@ Sources were checked for this consolidation. Product eligibility, model lifecycl
 - **R16:** [Claude tool access and loading modes](https://support.claude.com/en/articles/13730515-manage-claude-s-tool-access)
 - **R17:** [MCP tunnels scope and research-preview limitations](https://platform.claude.com/docs/en/agents-and-tools/mcp-tunnels/overview)
 - **R18:** [Foundry Claude hosting comparison](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models-hosting-comparison)
-
-## Appendix C. Design validation
-
-We consolidated the supplied design draft and prior research, checked current product documentation, and completed separate reviews of identity, Desktop distribution, architecture, and fallback choices. We corrected token-storage assumptions, OBO prerequisites, client capability claims, authorization-code handling, and recovery of in-flight transactions. All five diagrams passed Mermaid syntax validation; local document links and reference identifiers were checked.
-
-The expanded company examples were reviewed separately for evidence quality; the added decision records, contracts, and failure matrix received further identity and architecture reviews. We clarified concurrent external edits as an operation-specific acceptance gate.
-
-These are document and design checks. We still need to prove the selected client flow, backend delegation, account restrictions, data boundaries, and transaction behavior in a test environment before production use.
