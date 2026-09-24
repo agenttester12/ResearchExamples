@@ -6,6 +6,10 @@ A working project for evaluating and delivering AI-enabled HR capabilities in a 
 
 This workstream is maintained in the ResearchExamples Git repository. GitHub Desktop repository registration is separate from adding a local project in Codex.
 
+## Main implementation document
+
+Read [HR Workspace in Claude Desktop — Implementation Design](implementation-design.md) first. This is our consolidated team-facing implementation proposal, combining the supplied draft and the earlier research. It covers OAuth and backend credentials, ISU routing, distribution, five architecture/sequence diagrams, Azure hosting, and alternatives when MCP is not approved. Earlier research remains supporting evidence; the consolidated design is the current implementation reference.
+
 ## Current direction
 
 Claude is the initial HR workspace for research, reporting, analysis, transactions, and purpose-built apps. Copilot Studio is reserved for future agent efforts. Start with the [workspace, application platform, and SDLC plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md), then review the transaction research below.
@@ -20,7 +24,7 @@ Claude is the initial HR workspace for research, reporting, analysis, transactio
 | 4 | [Architecture and enforcement guide](workstreams/01-hr-transactions/research/hr-architecture-and-enforcement.md) | Detailed diagrams, OAuth, distribution, approval state, and acceptance tests by approach |
 | 5 | [Workday SOAP versus REST wrapper](workstreams/01-hr-transactions/research/workday-soap-versus-rest-wrapper.md) | Microsoft ESS sample inspection, direct SOAP versus wrapper tradeoffs, and updated authentication assumptions |
 
-The new workstream adds a sixth substantive research document. This README is the seventh document: the project overview and reading guide. The original four research documents were reviewed by specialist subagents; their review records and limitations remain in the documents. This index only organizes that work.
+The repository contains the consolidated implementation design, six supporting research documents, and this project overview and reading guide. The original four research documents were reviewed by specialist subagents; their review records and limitations remain in the documents. This index only organizes that work.
 
 ## Where the different approaches are covered
 
