@@ -8,13 +8,13 @@ This workstream is maintained in the ResearchExamples Git repository. GitHub Des
 
 ## Main implementation document
 
-Read [HR Workspace in Claude Desktop — Implementation Design](implementation-design.md) first. This is our consolidated team-facing implementation proposal, combining the supplied draft and the earlier research. It covers OAuth and backend credentials, ISU routing, distribution, five architecture/sequence diagrams, Azure hosting, and alternatives when MCP is not approved. Earlier research remains supporting evidence; the consolidated design is the current implementation reference.
+Read [HR Workspace in Claude Desktop — Implementation Design](implementation-design.md) first. This is our consolidated team-facing implementation proposal, combining the supplied draft and the earlier research. It covers named company examples and GitHub references, OAuth and backend credentials, ISU routing, distribution, five architecture/sequence diagrams, Azure hosting, alternatives when MCP is not approved, and architecture decisions, contracts, and failure recovery. Earlier research remains supporting evidence; the consolidated design is the current implementation reference.
 
 ## Current direction
 
-Claude is the initial HR workspace for research, reporting, analysis, transactions, and purpose-built apps. Copilot Studio is reserved for future agent efforts. Start with the [workspace, application platform, and SDLC plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md), then review the transaction research below.
+Claude is the initial HR workspace for research, reporting, analysis, transactions, and purpose-built apps. Copilot Studio is reserved for future agent efforts. After the consolidated design, review the [workspace, application platform, and SDLC plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md) for the broader application-development workstream, followed by the supporting transaction research below.
 
-## Review order and document inventory
+## Supporting research review order and document inventory
 
 | Order | Document | What to review |
 |---|---|---|

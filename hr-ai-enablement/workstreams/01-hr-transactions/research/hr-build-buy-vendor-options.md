@@ -137,7 +137,7 @@ Validate authentication in the **published target channel**, not only the author
 
 The two connectors are classified Premium for Copilot Studio and list exclusions including China operated by 21Vianet and US government clouds. Verify region and action availability for the company's actual environment. [Workday][V14], [Workday HCM][V15]
 
-The ESS Workday setup includes both an OAuth user connection and generic/context integration-user connection references. Inspect each topic and action; the package should not be described as universally delegated to the employee. For specialists changing other workers' records, compare its capabilities against an explicit HR-operator requirements list. [ESS integration][V16]
+The legacy ESS Workday setup includes both an OAuth user connection and generic/context integration-user connection references. The newer [simplified setup](https://learn.microsoft.com/en-us/microsoft-365/copilot/employee-self-service/workday-simplified-setup) instead documents the signed-in user’s identity for Workday REST and SOAP calls through a single OAuth connection. It also warns that a missing REST base URL can cause fallback to the legacy route. Inspect the installed package, configuration, and each action to establish the actual execution identity. For specialists changing other workers' records, compare its capabilities against an explicit HR-operator requirements list. [ESS integration][V16]
 
 ### 3.4 Distribution and global governance
 

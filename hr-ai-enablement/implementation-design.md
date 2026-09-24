@@ -7,17 +7,19 @@
 ## Contents
 
 - [1. What we are building](#1-what-we-are-building)
-- [2. Initial scope and boundaries](#2-initial-scope-and-boundaries)
-- [3. Target architecture](#3-target-architecture)
-- [4. How we distribute and operate MCP](#4-how-we-distribute-and-operate-mcp)
-- [5. Identity and token architecture](#5-identity-and-token-architecture)
-- [6. Token and credential sequences](#6-token-and-credential-sequences)
-- [7. How tools select the right execution identity](#7-how-tools-select-the-right-execution-identity)
-- [8. Forms, approvals, and transaction reliability](#8-forms-approvals-and-transaction-reliability)
-- [9. Hosting, storage, and security controls](#9-hosting-storage-and-security-controls)
-- [10. If MCP is not approved](#10-if-mcp-is-not-approved)
-- [11. Implementation sequence and acceptance gates](#11-implementation-sequence-and-acceptance-gates)
-- [12. Decisions we need to close](#12-decisions-we-need-to-close)
+- [2. What other companies and practitioners are doing](#2-what-other-companies-and-practitioners-are-doing)
+- [3. Initial scope and boundaries](#3-initial-scope-and-boundaries)
+- [4. Target architecture](#4-target-architecture)
+- [5. How we distribute and operate MCP](#5-how-we-distribute-and-operate-mcp)
+- [6. Identity and token architecture](#6-identity-and-token-architecture)
+- [7. Token and credential sequences](#7-token-and-credential-sequences)
+- [8. How tools select the right execution identity](#8-how-tools-select-the-right-execution-identity)
+- [9. Forms, approvals, and transaction reliability](#9-forms-approvals-and-transaction-reliability)
+- [10. Hosting, storage, and security controls](#10-hosting-storage-and-security-controls)
+- [11. If MCP is not approved](#11-if-mcp-is-not-approved)
+- [12. Architecture decisions, contracts, and failure handling](#12-architecture-decisions-contracts-and-failure-handling)
+- [13. Implementation sequence and acceptance gates](#13-implementation-sequence-and-acceptance-gates)
+- [14. Decisions we need to close](#14-decisions-we-need-to-close)
 
 ## 1. What we are building
 
@@ -44,7 +46,45 @@ IT will distribute and maintain Claude Desktop. This design covers how we make o
 | Foundry | Optional model access for that custom application; not required to connect Desktop to MCP |
 | Copilot Studio | A future agent/channel option; not a dependency for this implementation |
 
-## 2. Initial scope and boundaries
+## 2. What other companies and practitioners are doing
+
+We are not starting from an untested idea, but we need to distinguish evidence of a working pattern from proof that our controls are already solved. We will use the following examples to inform our architecture and pilot—not to infer our own delivery dates, security posture, or vendor entitlements.
+
+### Named organizations and documented patterns
+
+| Organization | What is publicly described | What we take into our design | Evidence boundary and links |
+|---|---|---|---|
+| **Jamf** | Broad employee use of Claude Enterprise, HR use cases, reusable skills, and employee-built dashboards. Its governance separates ordinary approved use, configured skills/MCP, and custom API applications. | We will support research and reporting alongside transactions, with review proportional to what is being connected or deployed. | Vendor case study; reports 21 implemented HR use cases. Its API layer uses Bedrock, not our proposed Azure deployment. It does not prove our transaction controls. [Case study](https://claude.com/customers/jamf) |
+| **Block** | Its goose agent connects employees to data and internal tools, including natural-language analytics, prototypes, and operational actions. | We will separate the employee interface from reusable business capabilities and retain a curated tool catalog. | Vendor case study; the interface is goose, not Claude Desktop. The code is inspectable; the former `block/goose` link now redirects to `aaif-goose/goose`. Neither proves end-user delegation to every backend. [Case study](https://claude.com/customers/block), [GitHub](https://github.com/aaif-goose/goose) |
+| **Workato** | Claude/MCP is used across connected business systems; its Workday End User template lists time-off submission, cancellation, and manager approval/rejection. | We will evaluate tools as complete business operations, including the executing identity and native process outcome. | A case study and documented product template are different evidence types. Self-service and manager actions do not establish arbitrary HR-administrator access. [Case study](https://claude.com/customers/workato), [Workday tool documentation](https://docs.workato.com/en/mcp/prebuilt-mcps/workday-end-user-mcp-server) |
+| **Microsoft** | Its Employee Self-Service rollout guidance describes a configured enterprise agent, while public Workday samples show concrete lookup and time-off topic/template patterns. | We will reuse the pattern of explicit inputs, configured service calls, and backend permissions. We will keep Copilot Studio as a future channel rather than a current prerequisite. | Internal rollout guidance is not proof that every listed third-party integration was deployed internally. Samples require the ESS runtime and tenant configuration; they are not standalone Desktop tools. [Deployment account](https://www.microsoft.com/insidetrack/blog/deploying-the-employee-self-service-agent-our-blueprint-for-enterprise-scale-success/), [Workday samples](https://github.com/microsoft/CopilotStudioSamples/tree/main/EmployeeSelfServiceAgent/Workday) |
+| **Workday** | AI Conversation Bridge separates messaging channels, orchestration, MCP, and Workday integration. | We will preserve the same interface/backend separation so we can change the front end without rewriting business rules. | Official-organization reference repository; its included MCP server returns mock Workday data. Production requires a real integration. It is not evidence of a completed Claude Desktop deployment. [GitHub](https://github.com/Workday/ai-conversation-bridge), [architecture](https://github.com/Workday/ai-conversation-bridge/blob/main/docs/architecture.md) |
+| **CData** | Its public Workday MCP server connects Claude Desktop to Workday through a JDBC driver. | We can inspect how source metadata and access are packaged, while comparing commercial value against our existing wrapper. | The public server explicitly provides read-only access. Commercial products and driver licensing are separate; this sample does not demonstrate governed HR writes. [GitHub](https://github.com/CDataSoftware/workday-mcp-server-by-cdata) |
+
+**Current Microsoft configuration matters:** the newer [simplified Workday setup](https://learn.microsoft.com/en-us/microsoft-365/copilot/employee-self-service/workday-simplified-setup) documents OAuthUser and Dataverse connections, distinct from the legacy ISU/RaaS route. It warns that an absent REST base URL can cause fallback to the legacy route. We will verify the actual credential path in any evaluation rather than infer it from a connector name. Our own design explicitly prohibits automatic privilege-expanding fallback. The [ESS developer kit](https://github.com/microsoft/Employee-Self-Service-Agent-Developer-Kit) is another implementation reference, not a drop-in Desktop integration.
+
+### Repositories and concrete implementation examples to inspect
+
+We will inspect specific components rather than treat a repository's existence as approval to deploy it.
+
+| Reference | What we should inspect | What we should not copy without validation |
+|---|---|---|
+| [Microsoft vacation-balance sample](https://github.com/microsoft/CopilotStudioSamples/tree/main/EmployeeSelfServiceAgent/Workday/EmployeeScenarios/EmployeeGetVacationBalance) | `topic.yaml`, authenticated employee-context binding, `authType=User`, the versioned SOAP request, and response extraction | Assumptions about shared execution, repeated-value alignment, display formatting, or supported tenant permissions |
+| [Microsoft request-time-off sample](https://github.com/microsoft/CopilotStudioSamples/tree/main/EmployeeSelfServiceAgent/Workday/EmployeeScenarios/WorkdayEmployeeRequestTimeOff) | Structured input, tenant-specific time-off types, common execution, and success/error handling | A sample form submission as proof of our immutable approval or duplicate-prevention requirements |
+| [Workday AI Conversation Bridge](https://github.com/Workday/ai-conversation-bridge) | Channel adapter boundaries, orchestration interface, and mock tool contracts | Demo deployment access settings, mock authentication/data, or deprecated components as a production baseline |
+| [goose](https://github.com/aaif-goose/goose) | Agent/tool separation, extension interfaces, and client behavior | Assuming a capability in goose exists in Claude Desktop, or adopting broad shell execution for HR production |
+| [CData Workday MCP](https://github.com/CDataSoftware/workday-mcp-server-by-cdata) | Local packaging and the boundary between the MCP server and source driver | Read/write capability or enterprise controls inferred from unrelated commercial products |
+| [Workday CLI by favalos](https://github.com/favalos/workday_cli) | Browser OAuth and the separation of business commands from Workday API calls | Community-maintained code as a supported Workday security/approval implementation |
+
+We will pin the reviewed commit/version, check the license and dependencies, inspect secret and network handling, and run only with synthetic data and test credentials during evaluation. We will not install these projects into production as part of this document.
+
+### Practitioner evidence
+
+A [Workday practitioner demonstration](https://www.reddit.com/r/workday/comments/1torbgo/claude_code_skills_for_workday/) describes using Claude Code with Workday commands for reference data, positions, and hire requests, and links to the CLI above. The author notes that approval steps were disabled for the demonstration. We will use this as evidence that conversational orchestration is practical, not as a transaction-control design. Claude Code is also a different client from Desktop.
+
+The key lesson across these examples is that the interface is reusable, while permissions and execution semantics remain system-specific. The strongest support for our plan is the combination of broad employee enablement, inspectable integration examples, and explicit operation-level controls. No example removes our need to prove delegated identity, regional data handling, approval integrity, and recovery.
+
+## 3. Initial scope and boundaries
 
 We will start with a small catalog rather than expose every SOAP operation dynamically.
 
@@ -62,7 +102,7 @@ We will exclude payroll/banking changes, bulk changes, termination, and automate
 
 Workday is our current integration focus. The supplied draft also mentions Client 360; we will add it only after confirming its API, identity mechanism, and selected use cases. We are not assuming that Workday and Client 360 support the same token exchange.
 
-## 3. Target architecture
+## 4. Target architecture
 
 ```mermaid
 flowchart TD
@@ -95,7 +135,7 @@ Remote connector calls originate from Claude's cloud infrastructure, including w
 
 The data returned by tools may enter Claude's conversation and processing context. Hosting the wrapper or MCP service in Azure does not move Claude Desktop model processing into Azure or establish regional residency for the complete flow.
 
-## 4. How we distribute and operate MCP
+## 5. How we distribute and operate MCP
 
 ### Remote connector: our default
 
@@ -126,7 +166,7 @@ Stdio avoids opening a local listener, but it does not eliminate endpoint compro
 
 Local execution changes network origin; tool results may still be sent to Claude. It is not a workaround for a prohibition on sharing the data with the model.
 
-## 5. Identity and token architecture
+## 6. Identity and token architecture
 
 ### We separate three identities
 
@@ -178,7 +218,7 @@ If compatible delegation is unavailable, we will connect the user's Workday acco
 
 We will aim to avoid repeated login during normal use, with supported refresh and token caching. Consent, session expiry, revocation, conditional access, or an unconnected backend may require another browser interaction. “Authenticate once forever” is not a requirement we can promise.
 
-## 6. Token and credential sequences
+## 7. Token and credential sequences
 
 ### A. User-delegated operation
 
@@ -250,7 +290,7 @@ sequenceDiagram
 
 Credential retrieval may live inside our wrapper if it already implements this securely. We will avoid duplicating secret management. The illustrated internal invocation must preserve integrity of actor, operation, and approval context; callers cannot select arbitrary accounts or endpoints.
 
-## 7. How tools select the right execution identity
+## 8. How tools select the right execution identity
 
 We will maintain an operation registry in version-controlled server configuration. Claude sees business descriptions and validated input schemas. Our server resolves the authentication mode.
 
@@ -282,7 +322,7 @@ Our initial tools will follow these responsibilities:
 
 We will use clear descriptions to improve tool selection. Descriptions and prompts do not enforce access or explicit intent. Unauthorized calls must fail even if Claude selects the wrong tool.
 
-## 8. Forms, approvals, and transaction reliability
+## 9. Forms, approvals, and transaction reliability
 
 We will collect required fields through conversation or a supported structured-input surface, then validate them on the server. We will not assume that specification-level elicitation means our deployed Desktop version supports every form behavior. We will verify client capability before using it.
 
@@ -321,7 +361,7 @@ Approvals and status must survive Desktop closure and server restart. Logs alone
 
 A slash command can be a useful entry convention where supported, but we will not treat it as an MCP authorization boundary. If deterministic per-request tool exposure becomes mandatory, we will use an application-controlled execution path. Claude documents Auto, Always available and On demand tool-loading modes; loading is not authorization. We will not rely on an assertion that every enabled tool is always visible or that a prompt can prevent every unwanted invocation. [R16]
 
-## 9. Hosting, storage, and security controls
+## 10. Hosting, storage, and security controls
 
 We will start with a small shared Azure deployment rather than one infrastructure stack per tool. Container Apps is our candidate for containerized APIs/workers; App Service is the alternative for a conventional web/API deployment. Functions fit scheduled or event-driven reconciliation and integration tasks. A modular monolith can run on either hosting platform. [R11]
 
@@ -335,7 +375,7 @@ We will audit caller, operation/version, permitted target, policy decision, prop
 
 For global use, we will document conversation processing, tool traffic, storage, logs, credentials, backups, support access, and failover separately. No hosting label establishes end-to-end residency. We will test any required restriction on personal Claude accounts, other organizations, unmanaged devices, and off-network paths rather than assuming SSO proves it.
 
-## 10. If MCP is not approved
+## 11. If MCP is not approved
 
 We will first identify what is actually disallowed, then select an approved architecture. Changing protocol is not a way to bypass a data-access decision.
 
@@ -379,7 +419,87 @@ The current hosting comparison describes Global or available US Data Zone proces
 
 Foundry Agent Service is optional if we need a managed agent runtime, subject to model/runtime compatibility; a simple application can use model tool calling with our own execution loop. Desktop licensing and model API consumption are separate planning items. Copilot Studio can later consume our REST APIs or MCP service if approved, without making it a prerequisite now.
 
-## 11. Implementation sequence and acceptance gates
+## 12. Architecture decisions, contracts, and failure handling
+
+### Decision record
+
+We will record consequential architecture choices as decisions with an owner, evidence, and a revisit trigger. Our starting positions are:
+
+| Decision | Why we choose it | Cost or limitation we accept | Revisit when |
+|---|---|---|---|
+| Remote MCP by default | Central rollout, credential custody, policy and incident controls | Cloud-origin connectivity and model data flow require approval | Our network or data constraints prohibit this path |
+| Reuse the REST wrapper | Preserve existing SOAP coverage and authentication investment | We inherit its correctness and maintenance dependencies | Its operation coverage or identity behavior fails the pilot |
+| Shared business API behind client adapters | Reuse controls from Desktop, review pages, reporting and future channels | We own contracts and integration tests | A proven native/vendor operation removes meaningful custom work |
+| Modular core plus isolated privileged execution | Keep initial operations manageable while constraining write credentials | Core modules still share releases/process failure; separation adds a service boundary | Scaling, ownership, privilege or regional needs justify further separation |
+| Server-held exact-change approval | Protect execution from model ambiguity and payload changes | Additional review interaction and durable state | A tested inline surface provides equivalent binding and identity evidence |
+| Per-operation credential policy | Avoid model-controlled privilege selection | Each operation needs explicit mapping and review | Backend capabilities change; never because a user request was denied |
+| Minimal backend access and outputs | Limit unnecessary disclosure and blast radius | Some broad exploratory questions need a separate approved report | A measured use case justifies additional fields or scope |
+
+These decisions are intentionally reversible at the interface and hosting layers. Backend actor semantics, recorded approvals, and audit integrity are constraints that every replacement must preserve.
+
+### Control invariants
+
+We will treat the following as release-blocking properties:
+
+- Every protected call has a verified caller and an operation-specific authorization decision.
+- A model-supplied employee ID, role, country, or credential profile never establishes authority.
+- Every write matches one authorized, unexpired proposal and passes current permission checks.
+- A user-delegation failure never expands access by switching to ISU.
+- A successful conversation is not counted as a successful transaction without backend evidence.
+- An ambiguous commit is reconciled before any new submission is permitted.
+- An export is authorized at generation and retrieval; a file link does not replace access control.
+- A disabled operation remains disabled regardless of cached client tool definitions.
+
+### Business API and MCP contracts
+
+We will keep transport and business contracts separate. MCP translates a tool call into our business operation; it does not become the only place where policy is enforced. Our web app fallback calls the same business service.
+
+| Contract element | Required content |
+|---|---|
+| Operation definition | Stable name/version, owner, backend mapping, schemas, supported scope, credential mode, approval and retry classification |
+| Request context | Verified actor, tenant/environment, correlation ID, authorized target, policy version; injected by trusted middleware rather than accepted from the model |
+| Proposal record | Immutable payload and version/hash, target, actor, relevant source-state snapshot/version, expiry, approval state and approved credential policy |
+| Execution record | Proposal reference, execution ID, deduplication identity, attempt state/lease, backend reference, timestamps and reconciliation outcome |
+| Tool result | Explicit outcome, correlation/reference IDs, minimal business data, effective/as-of date and freshness where relevant |
+| Error result | Stable error code and safe next action; no tokens, raw SOAP fault dumps, stack traces, or fabricated completion |
+
+Proposed business error categories include `AUTHENTICATION_REQUIRED`, `BACKEND_CONNECTION_REQUIRED`, `ACCESS_DENIED`, `VALIDATION_FAILED`, `APPROVAL_REQUIRED`, `PROPOSAL_STALE`, `RATE_LIMITED`, and `OUTCOME_UNKNOWN`. These are our application codes, not claims about standard MCP methods. We will use protocol-appropriate authentication errors for the MCP boundary and structured business results for authorized calls that fail business processing.
+
+The caller may supply a request identifier for correlation, but it cannot make a duplicate safe simply by generating a new identifier. We will bind submission deduplication to the approved proposal and intended operation. Where backend deduplication is unavailable, the operation contract must state the reconciliation method and when manual resolution is necessary.
+
+Source-state revalidation is not atomic with a remote write. Each write contract must identify supported backend conditional-write/version checks. If the backend cannot enforce them, we must document the concurrent-edit limitation, assess whether the operation is safe to enable, and define detection and recovery. A local execution lease prevents competing local submissions; it cannot lock out another HR application.
+
+We will version tool schemas, backend mappings and policy together. A material change to meaning, credential mode or approval behavior invalidates affected outstanding proposals or requires an explicit compatible migration. We will not execute an old approval under newly expanded privileges.
+
+### Failure and recovery matrix
+
+| Failure | Required behavior | Recovery evidence |
+|---|---|---|
+| MCP access token invalid | Reject before dispatch | New valid login; no backend call occurred |
+| Backend grant expired/revoked | Refresh only if supported; otherwise request reconnection | Verified grant for the same intended user and resource |
+| Permission revoked after preparation | Reject submission even if the proposal was previously approved | Current policy decision and invalidated proposal |
+| Source record changed | Reject or require a new proposal where the change affects the approved outcome | New before/after values reviewed by the authorized approver |
+| Backend returns permission denial | Return denial; do not change account or widen scope | Corrected legitimate permissions or a different approved business process |
+| Backend throttles a read | Apply bounded retry/backoff within the request budget | No uncontrolled retry loop or cross-user starvation |
+| Backend throttles or times out on a write | Follow operation-specific retry rules; use unknown/reconciliation state where acceptance is ambiguous | Backend lookup/reference or manual adjudication before resubmit |
+| Executor crashes after backend acceptance | Recover durable in-flight state; reconcile before retry | Backend status and recovered execution record |
+| Audit/proposal store unavailable | Stop new writes requiring that evidence | Store recovery and durable correlation restored |
+| Regional destination unavailable | Fail closed rather than silently cross an unapproved boundary | Approved failover or controlled service restoration |
+| Model is unavailable or produces invalid arguments | Return a clear failure; preserve pending transactions | Status/review or existing HR interface remains usable where independent of the model |
+
+We will distinguish synchronous request deadlines from transaction lifetime. A client disconnect does not cancel an accepted backend business process. Cancellation, if supported, is a separately authorized operation with its own outcome.
+
+### Capacity, service objectives, and operational readiness
+
+We will not invent an availability percentage or throughput target before measuring demand and dependencies. Before production, we will record expected active users, peak requests, report sizes, backend quotas, target lookup latency, acceptable report completion time, maximum reconciliation age, recovery objectives, and support coverage.
+
+Our load tests will cover peak concurrency, slow backend responses, token refresh contention, report generation, and concurrent submissions. We will use per-user and per-operation limits, bounded queues, deadlines and circuit breaking to protect shared capacity. Long-running reports will not occupy interactive request slots indefinitely.
+
+We will measure platform and business outcomes separately: API latency/error rates, dependency health, denied requests, token refresh failures, duplicate suppression, unresolved executions, authorized report delivery, and confirmed transaction completion. Metrics will not use employee IDs or sensitive values as high-cardinality labels.
+
+The pilot is ready only when we can identify the deployed version, disable writes, reconcile uncertain outcomes, restore durable state, rotate/revoke credentials, and route users to the fallback. For an operation without authoritative status lookup, we will define a manual reconciliation runbook before enabling it—not after the first timeout.
+
+## 13. Implementation sequence and acceptance gates
 
 | Phase | What we deliver | Exit criteria |
 |---|---|---|
@@ -405,7 +525,7 @@ We will promote a reviewed immutable artifact, protect workflow and permission c
 
 The broader pipeline and shared-platform implementation is detailed in our [rapid-development plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md). This document defines the Desktop integration contract; it does not enable CI/CD or provision infrastructure.
 
-## 12. Decisions we need to close
+## 14. Decisions we need to close
 
 1. Which Claude organization/plan, client versions, connector controls, and network path will we use?
 2. Which corporate IdP and authorization server will issue tokens for our MCP resource?
@@ -460,5 +580,7 @@ Sources were checked for this consolidation. Product eligibility, model lifecycl
 ## Appendix C. Design validation
 
 We consolidated the supplied design draft and prior research, checked current product documentation, and completed separate reviews of identity, Desktop distribution, architecture, and fallback choices. We corrected token-storage assumptions, OBO prerequisites, client capability claims, authorization-code handling, and recovery of in-flight transactions. All five diagrams passed Mermaid syntax validation; local document links and reference identifiers were checked.
+
+The expanded company examples were reviewed separately for evidence quality; the added decision records, contracts, and failure matrix received further identity and architecture reviews. We clarified concurrent external edits as an operation-specific acceptance gate.
 
 These are document and design checks. We still need to prove the selected client flow, backend delegation, account restrictions, data boundaries, and transaction behavior in a test environment before production use.
