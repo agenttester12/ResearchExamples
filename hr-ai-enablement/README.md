@@ -8,13 +8,15 @@ This workstream is maintained in the ResearchExamples Git repository. GitHub Des
 
 ## Main implementation document
 
-Read [HR Workspace in Claude Desktop — Proposed Implementation Design](implementation-design.md) first. This is our consolidated team-facing implementation proposal, combining the supplied draft and the earlier research. It covers named company examples and GitHub references, OAuth and backend credentials, ISU routing, distribution, seven architecture, sequence, and decision diagrams, Azure hosting, alternatives when MCP is not approved, and architecture decisions, contracts, and failure recovery. Earlier research remains supporting evidence; the consolidated proposal is the current design-review reference.
+Read [HR Workspace in Claude Desktop — Proposed Implementation Design](implementation-design.md) first. This is our consolidated team-facing implementation proposal, combining the supplied draft and the earlier research. It covers named company examples and GitHub references, OAuth and backend credentials, ISU routing, distribution, eight architecture, sequence, and decision diagrams, AWS/Azure hosting options and enterprise MCP scaling, alternatives when MCP is not approved, and architecture decisions, contracts, and failure recovery. Earlier research remains supporting evidence; the consolidated proposal is the current design-review reference.
 
 Read the [success measures and evaluation plan](evaluation-and-success-plan.md) next for the proposed scorecard, global evaluation coverage, and pilot release gates.
 
-## Current direction
+## Proposed direction and confirmed context
 
-Claude is the initial HR workspace for research, reporting, analysis, transactions, and purpose-built apps. Copilot Studio is reserved for future agent efforts. After the consolidated design, review the [workspace, application platform, and SDLC plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md) for the broader application-development workstream, followed by the supporting transaction research below.
+Claude Code currently uses Amazon Bedrock; IT still needs to determine the Desktop arrangement.
+
+Claude Desktop is the proposed HR workspace for research, reporting, analysis, transactions, and purpose-built apps. Copilot Studio is reserved for future agent efforts. After the consolidated design, review the [workspace, application platform, and SDLC plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md) for the broader application-development workstream, followed by the supporting transaction research below.
 
 ## Supporting research review order and document inventory
 

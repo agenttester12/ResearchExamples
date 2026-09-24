@@ -15,7 +15,7 @@
 - [7. Token and credential sequences](#7-token-and-credential-sequences)
 - [8. How tools select the right execution identity](#8-how-tools-select-the-right-execution-identity)
 - [9. Forms, approvals, and transaction reliability](#9-forms-approvals-and-transaction-reliability)
-- [10. Hosting, storage, and security controls](#10-hosting-storage-and-security-controls)
+- [10. MCP platform, scale, and deployment](#10-mcp-platform-scale-and-deployment)
 - [11. If MCP is not approved](#11-if-mcp-is-not-approved)
 - [12. Architecture decisions, contracts, and failure handling](#12-architecture-decisions-contracts-and-failure-handling)
 - [13. Proposed implementation sequence and acceptance gates](#13-proposed-implementation-sequence-and-acceptance-gates)
@@ -29,7 +29,7 @@ The recommended integration approach is to expose approved business capabilities
 
 Our existing SOAP-to-REST wrapper supports user, ISU, and OAuth authentication. We recommend evaluating it as the integration layer before considering a second transport adapter. We still need to inspect and test its token handling, authorization boundaries, service coverage, error mapping, and retry behavior.
 
-IT ownership of Claude Desktop is part of our stated context. This proposal describes how we could make our HR connector available and operate the services behind it. We do not assume a particular corporate identity provider, an existing Azure deployment, or approval to send HR data to any model service.
+Our Claude Code setup uses Amazon Bedrock. Claude Desktop’s deployment, licensing, model-processing arrangement and controls remain for IT to determine. These are separate client decisions: the Code configuration does not establish how Desktop would run. The potential population is approximately 45,000 employees plus contractors; the proposed initial HR pilot is a subset. This proposal leaves the corporate IdP, application cloud, and approved model data boundaries open. [Claude Code on Bedrock](https://code.claude.com/docs/en/amazon-bedrock)
 
 Diagrams and component choices are proposed. “Must” identifies a security or correctness requirement if we adopt the design. Hosting, identity routes, scope, and rollout remain open for review.
 
@@ -43,7 +43,7 @@ Diagrams and component choices are proposed. “Must” identifies a security or
 | User authentication | OAuth to our MCP resource, with backend-specific delegation or account connection |
 | System authentication | Restricted ISU Basic credentials held server-side, selected by operation policy |
 | Write approval | Server-recorded approval bound to an exact proposal and authorized reviewer |
-| Initial hosting | A small shared Azure application platform; Container Apps if our operating model supports containers, otherwise App Service |
+| Application hosting | Managed containers on an approved AWS or Azure platform; select ECS/Fargate or Container Apps based on platform fit and wrapper connectivity, with App Service as an existing-platform alternative |
 | If MCP is not approved | An SSO-protected web application calling the same business APIs directly |
 | Foundry | Optional model access for that custom application; not required to connect Desktop to MCP |
 | Copilot Studio | A future agent/channel option; not a dependency for this implementation |
@@ -56,7 +56,7 @@ The examples below provide evidence for individual patterns, not a complete prod
 
 | Organization | What is publicly described | What we take into our design | Evidence boundary and links |
 |---|---|---|---|
-| **Jamf** | Broad employee use of Claude Enterprise, HR use cases, reusable skills, and employee-built dashboards. Its governance separates ordinary approved use, configured skills/MCP, and custom API applications. | We would support research and reporting alongside transactions, with review proportional to what is being connected or deployed. | Vendor case study; reports 21 implemented HR use cases. Its API layer uses Bedrock, not our proposed Azure deployment. It does not prove our transaction controls. [Case study](https://claude.com/customers/jamf) |
+| **Jamf** | Broad employee use of Claude Enterprise, HR use cases, reusable skills, and employee-built dashboards. Its governance separates ordinary approved use, configured skills/MCP, and custom API applications. | We would support research and reporting alongside transactions, with review proportional to what is being connected or deployed. | Vendor case study; reports 21 implemented HR use cases. Its API layer uses Bedrock; our application hosting remains open. It does not prove our transaction controls. [Case study](https://claude.com/customers/jamf) |
 | **Block** | Its goose agent connects employees to data and internal tools, including natural-language analytics, prototypes, and operational actions. | We would separate the employee interface from reusable business capabilities and retain a curated tool catalog. | Vendor case study; the interface is goose, not Claude Desktop. Its public code does not establish end-user delegation to every backend. [Case study](https://claude.com/customers/block), [GitHub](https://github.com/aaif-goose/goose) |
 | **Workato** | Claude/MCP is used across connected business systems; its Workday End User template lists time-off submission, cancellation, and manager approval/rejection. | We would evaluate tools as complete business operations, including the executing identity and native process outcome. | A case study and documented product template are different evidence types. Self-service and manager actions do not establish arbitrary HR-administrator access. [Case study](https://claude.com/customers/workato), [Workday tool documentation](https://docs.workato.com/en/mcp/prebuilt-mcps/workday-end-user-mcp-server) |
 | **Microsoft** | Its Employee Self-Service rollout guidance describes a configured enterprise agent, while public Workday samples show concrete lookup and time-off topic/template patterns. | We would reuse the pattern of explicit inputs, configured service calls, and backend permissions. We would keep Copilot Studio as a future channel rather than a current prerequisite. | Internal rollout guidance is not proof that every listed third-party integration was deployed internally. Samples require the ESS runtime and tenant configuration; they are not standalone Desktop tools. [Deployment account](https://www.microsoft.com/insidetrack/blog/deploying-the-employee-self-service-agent-our-blueprint-for-enterprise-scale-success/), [Workday samples](https://github.com/microsoft/CopilotStudioSamples/tree/main/EmployeeSelfServiceAgent/Workday) |
@@ -130,7 +130,7 @@ The proposed executor would independently validate the human actor and approved 
 
 Remote connector calls originate from Claude's cloud infrastructure, including when the user works in Desktop. The laptop's VPN does not make an internal endpoint reachable to that client. We would use an approved reachable ingress path. If that is prohibited, we would evaluate an explicitly approved local-adapter or custom-application path rather than assume a private Desktop connector feature exists. [R1](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
 
-The data returned by tools may enter Claude's conversation and processing context. Hosting the wrapper or MCP service in Azure does not move Claude Desktop model processing into Azure or establish regional residency for the complete flow.
+The data returned by tools may enter Claude's conversation and processing context. Hosting the wrapper or MCP service in AWS or Azure does not determine Claude Desktop model processing or end-to-end data residency.
 
 ## 5. Proposed MCP distribution and operation
 
@@ -184,7 +184,7 @@ We would carry trusted identity context through our services and obtain credenti
 | Downstream user access token | The specified backend API | Obtained by supported delegation or linked account; retained only in protected server storage/cache as required |
 | Downstream refresh token | Backend authorization server | Encrypted, access-controlled server-side token store; rotation/revocation handling |
 | ISU username/password | Approved backend authentication endpoint | Secret store, least-privilege retrieval, TLS, rotation; never on the desktop or in chat |
-| Workload token | Our Azure resources or protected internal API | Separate scoped workload identity; not a substitute for human authorization |
+| Workload token | Our cloud resources or protected internal API | Separate scoped workload identity; not a substitute for human authorization |
 
 We would key backend token caches by verified principal, tenant, resource and grant/scope as appropriate. We would prevent cross-user reuse, serialize refresh where required, handle rotated/revoked refresh tokens, and never silently substitute a different account.
 
@@ -423,19 +423,105 @@ Approvals and status must survive Desktop closure and server restart. Logs alone
 
 A slash command can be a useful entry convention where supported, but we would not treat it as an MCP authorization boundary. If deterministic per-request tool exposure becomes mandatory, we would use an application-controlled execution path. Claude documents Auto, Always available and On demand tool-loading modes; loading is not authorization. [R16](https://support.claude.com/en/articles/13730515-manage-claude-s-tool-access)
 
-## 10. Hosting, storage, and security controls
+## 10. MCP platform, scale, and deployment
 
-We would start with a small shared Azure deployment rather than one infrastructure stack per tool. Container Apps is a candidate for containerized APIs/workers; App Service is the alternative for a conventional web/API deployment. Functions fit scheduled or event-driven reconciliation and integration tasks. A modular monolith can run on either hosting platform. [R11](https://learn.microsoft.com/en-us/azure/container-apps/compare-options)
+### Recommended service pattern
 
-The proposed logical components are the MCP/business application, approval page and durable store, restricted executor/credential broker, existing wrapper, audit/monitoring, and an optional queue/worker. We can combine compatible components while preserving privilege boundaries. We would use separate production and nonproduction identities/data, and approved regional boundaries where required.
+We recommend a thin MCP adapter over a shared HR business service, deployed on managed application compute. The service would reuse our wrapper and remain independent of the model provider. It does not need a second LLM or an autonomous agent runtime just to validate a tool request and call an API.
 
-Shared hosting does not imply shared privileges. We would use scoped workload identities, protected secrets, server-side per-record authorization, restricted egress, output minimization, and explicit retention. A shared process is not a sandbox for unreviewed generated code.
+MCP supplies the client-facing tool interface; it is not the transaction engine or authorization policy. Our existing wrapper supplies backend transport and supported authentication. The business layer between them would define permitted operations, worker scope, approval, normalization, and recovery. Dynamic SOAP exposure can accelerate adapter development, but should not automatically publish new tools or privileges.
 
-For reporting, we would prefer approved analytical datasets and defined metrics for broad analysis. We would authorize jobs and downloads, preserve units and effective dates, and prevent unbounded exports. Knowledge retrieval must filter access before returning content to Claude.
+| Deployable responsibility | Proposed contents | Why separate or combine |
+|---|---|---|
+| HR application service | MCP and REST adapters, curated catalog, permission checks, reads, proposal API and review page | A modular application keeps contracts and releases manageable; compatible UI/API components can share a deployment |
+| Restricted execution service | Submission, reconciliation, backend credential access and independent approval checks | A separate workload identity and network boundary protects write privileges from the general application |
+| Background report worker, when needed | Bounded report generation and export preparation | Separate concurrency and resource limits prevent reports exhausting interactive capacity; it must not inherit write credentials |
+| Existing wrapper | SOAP/REST mapping and its verified credential functions | Reuse its current deployment if suitable; avoid duplicating credentials or conversion logic |
+| Managed state services | Durable proposal/execution database, queue, secret/token stores and report object storage | Preserve state across replicas and deployments; these are shared infrastructure, not one instance per tool |
 
-We would audit caller, operation/version, permitted target, policy decision, proposal/approval reference, execution identity type, backend reference, and outcome. We would minimize personal data and redact secrets. Audit retention should exclude unnecessary HR payloads and conversation content.
+This is a modular core with separation where privileges or workloads justify it. We should not create a microservice, Function, or Container App for every tool or small HR form. A new deployment should require a concrete isolation, scale, ownership, availability, or release-cadence need. Generated applications that execute untrusted code need their own sandbox; sharing authentication does not make a shared process safe.
 
-For global use, we would document conversation processing, tool traffic, storage, logs, credentials, backups, support access, and failover separately. No hosting label establishes end-to-end residency. We would test any required restriction on personal Claude accounts, other organizations, unmanaged devices, and off-network paths rather than assuming SSO proves it.
+```mermaid
+flowchart TD
+    Client[IT-approved client and connector] --> Ingress[Approved regional HTTPS ingress]
+    Ingress --> API[Replicated MCP and HR application service]
+    API --> Store[Durable proposals and execution state]
+    API --> Queue[Bounded report and execution queues]
+    API --> Read[Authorized read path]
+    Queue --> Report[Report worker with read-only scope]
+    Queue --> Exec[Restricted executor and reconciler]
+    Exec --> Check[Recheck actor, approval, policy and deduplication]
+    Check --> Broker[Credential broker or verified wrapper credential function]
+    Read --> Broker
+    Report --> Broker
+    Broker --> Wrapper[Existing SOAP-to-REST wrapper]
+    Wrapper --> HR[Workday]
+    Exec --> Store
+    Report --> Export[Access-controlled report storage]
+    API --> Metrics[Minimal audit and operational events]
+    Exec --> Metrics
+```
+
+The broker must enforce different permitted operations for each caller; sharing it must not give the read service access to write profiles. Queues should carry record references and integrity-protected execution context, not bearer tokens or ISU passwords. Workers must recheck authorization and obtain usable credentials at execution time. If a delegated grant cannot support delayed work, that operation needs a synchronous path or reconnection—not an ISU fallback.
+
+### Building the MCP service
+
+Use a maintained [official MCP SDK](https://modelcontextprotocol.io/docs/sdk) in a language our team supports, pinned to a tested version. A useful code structure is transport adapters, business operations/policy, backend integration, and state/credential access. Business tests should run without a model or Desktop process.
+
+Each tool should represent a bounded business action, with explicit input/output schemas, safe errors, pagination and result limits. Keep descriptions concise and version them with the operation. Prefer a curated role-relevant catalog over a universal SOAP dispatcher. Catalog filtering improves usability; the service must still authorize every invocation, including calls using cached tool definitions.
+
+The recommended transport is client-compatible Streamable HTTP with stateless request handling where supported. The current `2026-07-28` specification removes protocol-level sessions; earlier versions differ. We need to test the actual IT-selected client and SDK together rather than assume the newest protocol is supported. Earlier-client compatibility may need session handling, but never process-local-only transaction state. The full ingress path must preserve required headers, authorization challenges and any supported streaming, with tested timeouts and draining. [MCP transport specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http)
+
+Keep approval, execution and report state outside replicas. A protocol session is not a human identity or a durable workflow. A request disconnect may cancel request processing, but cannot undo an already accepted Workday transaction; its durable record must still be reconciled.
+
+### Capacity for 45,000 employees plus contractors
+
+Workforce size is the potential population, not the concurrent load or the initial access group. Capacity planning should distinguish HR specialists, any later employee self-service audience, contractors, and their allowed operations. A contractor identity must not be assumed to map to an employee record or inherit employee capabilities.
+
+We should size from measured demand:
+
+`peak tool requests/second = active users in a peak interval × requests per user in that interval ÷ interval seconds`
+
+`approximate in-flight requests = request arrival rate × mean service time`
+
+These estimate average occupancy within the chosen peak interval; they do not replace burst, tail-latency or failure testing. Backend load also depends on API calls per tool and bounded retries. Required inputs are expected adoption, regional working-hour overlap, seasonal events, read/write/report mix, wrapper latency, backend limits and OAuth refresh demand. Replica counts and costs remain open until these are measured.
+
+Proposed scale controls are:
+
+- Independently scale interactive requests and queued work; cap replicas and worker concurrency against backend quotas.
+- Apply per-user, per-operation and backend-wide limits across replicas. A limiter local to each replica must not multiply the effective backend allowance as we scale out.
+- Use bounded queues, backoff, deadlines and circuit breakers. Return a clear busy/status result rather than allow an unbounded retry backlog.
+- Use bounded retry budgets across ingress, worker and wrapper layers so retries do not multiply. Monitor queue age and dead-lettered jobs; replay requires the same authorization and deduplication controls.
+- Keep a warm production capacity floor where latency and availability require it; assess scale-to-zero for nonproduction or infrequent workers separately.
+- Cache only appropriately scoped reads and metadata, with freshness rules. Shared caches must include authorization-relevant dimensions; cached content must not bypass revoked access.
+- Test regional bursts, refresh contention, slow Workday calls, replica termination, queue redelivery, dependency outages and loss of an availability zone where the selected platform supports that configuration.
+
+A managed service can add compute; it cannot increase Workday quotas or fix an inefficient report. Bounded analytical datasets are preferable to broad transactional API scans for recurring reports.
+
+### Hosting choices
+
+Model hosting and MCP service hosting are separate choices. Claude Code using Bedrock is useful context, but does not establish an approved AWS application landing zone, a Desktop hosting model, or the location of our wrapper.
+
+| Option | Best fit | Tradeoff and condition |
+|---|---|---|
+| **AWS ECS on Fargate** | We have an approved AWS application platform, container operations and suitable connectivity to the wrapper | Deploy the application and restricted workers as separate services with scoped task roles; configure load balancing, autoscaling, state and queues. We own application operations. [ECS service autoscaling](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-auto-scaling.html) |
+| **Azure Container Apps** | An approved Azure landing zone and container operating model are the better fit | Managed application replicas and event-driven scaling suit APIs/workers; configure minimum capacity, limits, identity, ingress and regional dependencies. [Scaling](https://learn.microsoft.com/en-us/azure/container-apps/scale-app) |
+| **Azure App Service** | Existing operations favor conventional web/API hosting | A valid host for the modular application; assess separate worker capacity and actual streaming/client compatibility. [Hosting comparison](https://learn.microsoft.com/en-us/azure/container-apps/compare-options) |
+| **Managed MCP gateway or runtime** | Reducing protocol hosting or API-to-tool maintenance justifies another platform dependency | AgentCore Gateway can expose APIs as MCP tools; AgentCore Runtime can host tool code. They solve different problems. Validate Desktop OAuth/discovery, user-context propagation, regions, quotas and cost; retain our business authorization and durable approval/recovery. [Gateway](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html), [Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-how-it-works.html) |
+| **Functions/Lambda** | Short event-driven jobs, scheduled checks, or suitable managed gateway targets | Useful components, not a default one-function-per-tool architecture. A direct MCP endpoint needs proof of transport, runtime, concurrency and timeout fit. |
+| **Existing Kubernetes platform** | We already operate a supported cluster and need its controls | Valid if it is the established platform; workforce size alone does not justify introducing cluster operations. |
+
+Our recommended shortlist is a containerized shared application on **ECS/Fargate or Container Apps**, chosen by approved hosting, wrapper proximity, operational support, and data boundaries. App Service is a practical alternative where it is already the standard. A managed gateway merits a small comparison if it removes measurable work without weakening identity or execution controls. Running a second cloud merely to host MCP needs a clear benefit.
+
+### Global operation and data boundaries
+
+Start with an approved population and processing boundary. Expand regional deployments only where latency, continuity or data requirements justify them. Regional services should use the same reviewed artifact with controlled regional configuration; permissions derive from verified identities and business scope, not user-supplied location or source IP alone.
+
+Regional endpoint design also needs explicit OAuth resource/audience mapping; a token for one resource must not be accepted by an unrelated regional resource.
+
+Each transaction should have one authoritative execution record and deduplication boundary. Failover must preserve that authority or pause writes until state is reconciled; two regions must not independently submit the same proposal. Replicating encrypted tokens, HR data or logs across regions still moves those data and requires an approved boundary. Global routing should not silently send sensitive payloads through an unapproved processing location.
+
+Shared controls include separate production/nonproduction identities and data, restricted egress, per-record authorization, minimal outputs and defined retention. Audit should correlate caller, operation/version, target, policy result, approval, execution identity type, backend reference and outcome without retaining unnecessary HR payloads. Knowledge retrieval must filter access before results reach Claude; report generation and download each require authorization.
 
 ## 11. If MCP is not approved
 
@@ -475,7 +561,7 @@ flowchart TD
 flowchart LR
     User[HR user] --> Web[Our SSO web application]
     Web --> App[Application backend]
-    App --> Model[Approved model API through Foundry or another provider]
+    App --> Model[Approved model API through Bedrock, Foundry or another provider]
     Model --> Suggested[Structured tool request]
     Suggested --> App
     App --> Check[Validate caller, arguments and approval]
@@ -488,7 +574,9 @@ The model proposes a tool call. Our backend validates and executes the allowed b
 
 For the custom web app, the browser would redirect to our IdP and back to the app's registered callback. A server-side application session with a Secure, HttpOnly cookie would keep subsequent questions signed in, subject to session and access policy. Backend tokens would remain in the server-side broker. Each API request would still require authorization; cookie-authenticated state changes also need CSRF protection. Foundry would receive model requests, not HR credentials. This route replaces the conversational interface and MCP transport while reusing the proposed business controls.
 
-### Where Microsoft Foundry fits
+### Where Bedrock and Microsoft Foundry fit
+
+A custom application could use Bedrock model APIs with tool use if that use case, model and data boundary are approved. Our existing Claude Code setup does not automatically authorize HR runtime traffic or provide a Desktop replacement. [Bedrock tool use](https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html)
 
 In the Azure option, Azure would host our application and integration services. Microsoft Foundry can provide model deployments/API access for a custom application. It does not by itself provide the Desktop UI, redirect Desktop's model traffic, distribute our Desktop connector, or authorize HR transactions.
 
@@ -568,13 +656,9 @@ We would version tool schemas, backend mappings and policy together. A material 
 
 We would distinguish synchronous request deadlines from transaction lifetime. A client disconnect does not cancel an accepted backend business process. Cancellation, if supported, is a separately authorized operation with its own outcome.
 
-### Capacity, service objectives, and operational readiness
+### Operational readiness
 
-Availability and throughput targets remain open until we measure demand and dependencies. Before production, we would record expected active users, peak requests, report sizes, backend quotas, target lookup latency, acceptable report completion time, maximum reconciliation age, recovery objectives, and support coverage.
-
-Load testing should cover peak concurrency, slow backend responses, token refresh contention, report generation, and concurrent submissions. We would use per-user and per-operation limits, bounded queues, deadlines and circuit breaking to protect shared capacity. Long-running reports must not occupy interactive request slots indefinitely.
-
-We would measure platform and business outcomes separately: API latency/error rates, dependency health, denied requests, token refresh failures, duplicate suppression, unresolved executions, authorized report delivery, and confirmed transaction completion. Metrics must not use employee IDs or sensitive values as high-cardinality labels.
+Capacity and deployment controls are defined in §10. Before production, we need agreed latency, availability, report completion, reconciliation-age and recovery objectives, plus named support coverage. The evaluation plan separates operational health from business outcomes.
 
 A recommended pilot readiness gate is that we can identify the deployed version, disable writes, reconcile uncertain outcomes, restore durable state, rotate/revoke credentials, and route users to the fallback. An operation without authoritative status lookup needs a manual reconciliation runbook before enablement.
 
@@ -584,7 +668,7 @@ A recommended pilot readiness gate is that we can identify the deployed version,
 |---|---|---|
 | 1. Confirm contracts | Selected operations, source data, worker mapping, credential mode per operation, network/data boundaries | No unresolved identity mechanism for the first slice |
 | 2. Build shared service | Versioned business API, operation registry, wrapper adapter, scoped read, audit | Correct authorized results and explicit denial cases |
-| 3. Prove identity end to end | MCP OAuth plus one real supported delegated route and one restricted ISU route in test | Correct audiences, actor mapping, revocation, and no privilege fallback |
+| 3. Prove identity end to end | MCP OAuth and each identity route required by the selected pilot operations; separate delegated and ISU tests if both are in scope | Correct audiences, actor mapping, revocation, and no privilege fallback |
 | 4. Add Desktop | Test connector, tool schemas, role settings, missing-input handling | Successful supported-client login and tool use with no exposed secrets |
 | 5. Prove writes and reporting | Durable review, atomic submission, status/reconciliation, authorized report retrieval | Approval integrity, duplicate/timeout safety, and access-controlled outputs |
 | 6. Pilot | Trained users, transaction caps, monitoring, support, fallback and stop controls | Accepted outcomes and measured user effort/cost within the agreed scope |
@@ -604,24 +688,42 @@ We should combine deterministic service/security tests, multi-turn model evaluat
 
 The [success measures and evaluation plan](evaluation-and-success-plan.md) defines the scorecard, company examples, global test coverage, telemetry boundaries, tooling options and proposed release gates. It includes a measurement-flow diagram and distinguishes component evaluations from actual Desktop behavior.
 
-### SDLC and deployment
+### SDLC, AI-assisted development, and release automation
 
-We would use a supported application template, synthetic test data, code review, required checks, dependency/secret/IaC/image scanning as relevant, and targeted authorization/integration tests. Under this proposal, AI-generated code would follow the same release process as manually written code. Scanners do not establish correct HR policy.
+We recommend one SDLC for the service and rapidly developed HR applications. For runtime AI features, we would add versioned behavioral evaluations and monitoring to the normal SDLC. A form or dashboard built with Claude Code but containing no runtime AI needs application/security tests; it does not need an agent framework.
 
-We would promote a reviewed immutable artifact, protect workflow and permission changes, use narrowly scoped deployment identities, and verify that required scans actually ran. Where GitHub Actions deploys to Azure, OIDC federation avoids storing long-lived Azure deployment passwords. Production approval and Azure permissions remain separate requirements. [R14](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure)
+Claude Code on Bedrock can assist implementation, tests and documentation. Development should use scoped nonproduction access and synthetic data. Generated code, tool descriptions and infrastructure changes would enter the same review and release path as manually written changes.
 
-The broader pipeline and shared-platform implementation is detailed in our [rapid-development plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md).
+| Stage | Proposed automation and evidence |
+|---|---|
+| Define the operation | Versioned contract: actor, worker scope, fields, credential policy, approval, backend outcome and recovery; examples and negative cases |
+| Pull request | Formatting/types, targeted unit and contract tests, authorization/recovery tests; static analysis, dependency and secret scanning; IaC/container checks where applicable; named review for security-sensitive changes |
+| Build | Pinned dependencies and base images, reproducible build inputs, artifact digest, software bill of materials and build provenance |
+| Integration and evaluation | Isolated backend fixtures, OAuth/ISU and protocol compatibility, multi-turn/regional evals, required Desktop acceptance cases, migration and recovery tests |
+| Promote | Same tested artifact digest through environments; separately reviewed configuration and secret references; protected deployment identity and release authorization |
+| Roll out | Small permitted cohort or controlled revision, health and outcome checks, explicit abort thresholds; expand only after evidence passes |
+| Operate | Dependency updates, drift detection, synthetic health tests, failure-to-regression workflow, policy/client/model change checks, credential rotation and restore drills |
+
+The release record should bind source commit, artifact digest, schema/policy versions, infrastructure/configuration version and required test results. Verify provenance against the intended repository and workflow; a verified attestation supplies evidence of build origin, not application safety. A skipped required scan is a failed release check unless a reviewed, time-limited exception is recorded. [GitHub artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations), [secured workload supply chain](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/workload-supply-chain)
+
+Use short-lived federated deployment credentials where supported, constrained to the repository, environment/ref and required cloud permissions. For GitHub Actions this can use OIDC to the selected cloud; it does not remove the need to protect workflows or approve production changes. [Azure OIDC](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure), [AWS OIDC](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)
+
+Deployments must preserve pending approvals, queued jobs and in-flight executions. Use compatible additive database/schema changes before removing old fields; test old/new code coexistence and graceful worker draining. Rollback can restore code, but it cannot undo a Workday transaction. A database restore can also lose evidence of external commits: pause affected writes and reconcile before resuming. [Safe deployment guidance](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/safe-deployments)
+
+Keep tool registration and infrastructure configuration in reviewed automation where APIs support it. If Desktop connector administration requires a manual step, record and verify that step rather than claim a fully automated release. No CI job should publish every newly discovered SOAP service into the production catalog.
+
+The earlier [rapid-development research](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md) provides supporting context; the cloud-neutral shortlist in this design supersedes its Azure-first framing.
 
 ## 14. Decisions we need to close
 
-1. Which Claude organization/plan, client versions, connector controls, and network path will we use?
+1. Which Desktop offering, model-processing arrangement, organization/plan, client versions, connector controls and network path does IT approve?
 2. Which corporate IdP and authorization server will issue tokens for our MCP resource?
 3. Which exact delegated mechanism does the wrapper support for each Workday operation? Does it require a separately linked user grant?
 4. Where does the wrapper currently store/refresh credentials, and how does it verify trusted caller context?
 5. Which ISU operations are permitted, with what target population and minimum backend privileges?
 6. Which operation is our first write, who may approve it, and how do we reconcile ambiguous results?
 7. Which initial region, employee population, data classifications, and retention rules are approved?
-8. Which hosting, secret-management, logging, CI/CD, and model contracts can we reuse?
+8. Which AWS or Azure application platform, wrapper location, secret-management, logging, CI/CD and model contracts can we reuse? What measured demand and backend quotas determine capacity?
 9. If MCP is rejected, is the restriction about protocol, network, client, or model data handling?
 
 Implementation would require a named owner for application code, identity configuration, operation policy, release, and production reconciliation before pilot launch. Owners beyond IT’s Desktop responsibility remain to be agreed.

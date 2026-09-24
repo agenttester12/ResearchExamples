@@ -1,5 +1,7 @@
 # HR Workspace and Rapid Application Delivery
 
+> Current direction: Claude Code uses Bedrock; IT has not determined the Desktop arrangement. The [consolidated design](../../implementation-design.md#10-mcp-platform-scale-and-deployment) compares AWS and Azure application hosting and supersedes this research document’s Azure-first recommendation.
+
 **Research date:** 23 September 2026  
 **Status:** Architecture and delivery recommendation; no infrastructure or CI/CD has been provisioned.
 
