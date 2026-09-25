@@ -1,199 +1,211 @@
-# HR Workspace and Rapid Application Delivery
+# HR Rapid Application Delivery — Proposed Platform and GitLab SDLC
 
-> Current direction: Claude Code uses Bedrock; IT has not determined the Desktop arrangement. The [consolidated design](../../implementation-design.md#10-mcp-platform-scale-and-deployment) compares AWS and Azure application hosting and supersedes this research document’s Azure-first recommendation.
+**Date:** 25 September 2026
 
-**Research date:** 23 September 2026  
-**Status:** Architecture and delivery recommendation; no infrastructure or CI/CD has been provisioned.
+**Status:** Proposal for review. Platform choice, GitLab capabilities, release thresholds and owners remain to be agreed.
 
-## 1. Revised vision: Claude is the HR entry point
+## 1. Recommended approach
 
-The objective is broader than replacing AskHR transactions. Give trained HR colleagues a governed workspace for research, policy interpretation, reporting, analysis, drafting, transactions, and access to purpose-built applications. Transaction execution is one capability within that workspace.
+We propose a small shared application platform that lets us turn useful HR prototypes into supported applications quickly. The starting point is a modular web/API application, a restricted transaction executor, and a reporting worker when workload requires it. Related forms and dashboards can share deployment and infrastructure. Separate services should follow a real privilege, regional, scaling or release need.
 
-Claude is the initial entry point. Copilot Studio remains a future option for managed agents and Microsoft channels; an immediate head-to-head interface comparison is no longer a prerequisite. Earlier documents contain that comparison as research, rather than the current delivery priority.
+GitLab would manage source, review, pipelines and release evidence. A supported application template and reusable CI components would provide authentication, authorization, telemetry, tests and deployment defaults. AI-assisted changes would follow this same path. Applications that use a model at runtime would also require behavioral evaluations.
 
-Three separate activities need different controls:
+For deployment, we recommend controlled feature exposure to a small authorized cohort, combined with a compatible rolling update or blue-green application release. Canary traffic shifting is useful when we have enough traffic, reliable routing and measurable outcomes. It should not be the automatic choice for every HR utility.
 
-| Activity | Example | Recommended delivery |
-|---|---|---|
-| Use AI to do work | Research policy, summarize documents, draft a report | Approved Claude configuration, sources, data permissions, and human validation |
-| Use an existing business capability | Retrieve a headcount metric or submit an approved change | Curated tools backed by authorized services |
-| Use AI to build software | Create a dashboard, reconciliation screen, or intake app | Sandbox prototype followed by normal source control, review, tests, and deployment |
+This platform could serve a potential population of 45,000 employees plus contractors; initial access would be narrower. Capacity should follow measured concurrency and backend demand. The [integration design](../../implementation-design.md) covers MCP, OAuth and transaction execution; this document covers how we build and release reusable applications.
 
-An app built using AI does not necessarily need a model at runtime. A deterministic dashboard or form can be cheaper and easier to validate. Nor does every useful artifact need deployment: a one-off analysis can remain a controlled document. A reusable app needs an owner, supported users, data classification, maintenance plan, and retirement date or review cadence.
+## 2. Delivery options and when to use them
 
-Claude can discover tools and link users into approved apps. Do not assume every arbitrary web app can run inside Desktop or inherit its login. Browser apps establish their own corporate SSO session. Any interactive MCP surface requires client-specific support and testing.
+| Option | Suitable use | Tradeoff | Recommendation |
+|---|---|---|---|
+| **Module in a shared HR application** | Related forms, dashboards, report views and case-preparation utilities | Shared release cadence and process failure; module boundaries require discipline | Default for related applications with compatible trust and operational needs |
+| **Separate application on shared managed infrastructure** | Distinct permissions, regional boundary, heavy workload or independent lifecycle | More deployments and API contracts to operate | Use when the separation has a documented benefit |
+| **Existing approved low-code platform** | Standard intake and workflow patterns well supported by its connectors | Platform constraints, licensing and identity behavior; production controls still need to be demonstrated | Compare against custom development for simple workflows; avoid custom code where the platform already fits |
+| **Controlled report or analysis artifact** | One-time research, analysis or a limited report | Less interactive; sharing and retention still matter | Prefer when there is no recurring application need |
 
-## 2. Recommended architecture
+A generated screen is not a reason to create a microservice. Conversely, unrelated or untrusted code should not share the HR production process merely to reduce resource count. A reusable application needs a maintainer, supported users, data scope and retirement/review date before production release.
 
-**Start with a modular application core on shared infrastructure, a restricted transaction execution service, and a background worker where needed. Do not turn each HR screen into a microservice.**
-
-A module is a code and ownership boundary. A service is a separately operated runtime boundary. A monorepo is a source-code organization choice. These are independent decisions.
+## 3. Proposed architecture and hosting
 
 ```mermaid
 flowchart TD
-    HR[HR colleagues] --> Claude[Approved Claude workspace]
-    HR --> Browser[Shared HR app portal]
-    Claude --> Cloud[Claude cloud connector client]
-    Cloud --> Edge[Protected MCP and API ingress]
-    Browser --> Edge
-    Edge --> Core[Modular HR application core]
-    Core --> Knowledge[Permission-filtered knowledge and reporting APIs]
-    Core --> Queue[Job queue]
-    Queue --> Worker[Restricted reporting worker]
-    Core --> Tx[Transaction service with approval and authorization]
-    Tx --> Wrapper[Existing SOAP-to-REST wrapper]
-    Wrapper --> System[HR systems and native approvals]
-    Worker --> Data[Approved analytical data and report storage]
-    Core --> Results[Authorized job status and result retrieval]
-    Results --> Data
-    Future[Future Copilot Studio agents] -.-> Edge
+    Users[Authorized HR users] --> Portal[HR application portal]
+    Client[Approved conversational client] --> MCP[MCP adapter]
+    Portal --> Core[Modular HR business API]
+    MCP --> Core
+    Core --> Read[Permission-filtered reads and reporting data]
+    Core --> Proposal[Durable proposal and approval records]
+    Core --> Queue[Bounded report queue]
+    Queue --> Worker[Reporting worker with read-only scope]
+    Worker --> Exports[Access-controlled report storage]
+    Core --> Results[Authorized job and result retrieval]
+    Results --> Exports
+    Core --> Executor[Restricted transaction executor]
+    Proposal --> Executor
+    Executor --> Checks[Recheck actor, scope, approval and execution state]
+    Checks --> Wrapper[Existing SOAP-to-REST wrapper]
+    Wrapper --> HR[HR systems and native business processes]
 ```
 
-This is a logical design, not a promise that one OAuth client works for every interface. Remote Claude connector traffic is cloud-originated. Tool access and browser API access need appropriate token audiences, client configuration, and network controls.
+The core would contain modules with explicit interfaces, tests and ownership. Shared identity, UI, error handling and telemetry belong in supported libraries. Automated dependency checks should prevent circular dependencies and access to module internals. Repository structure and runtime structure are separate choices: a monorepo can contain several deployables.
 
-Keep the portal's routes, shared UI components, ordinary read APIs, and catalog in one deployable application initially. Organize reporting, case preparation, policy utilities, and transaction proposals as modules with explicit interfaces and owners. Enforce module boundaries in review and automated dependency checks. Modules in one process are not security sandboxes.
+The executor would have its own workload identity and credential access. It must independently validate the human actor and approved proposal. The reporting worker would not inherit write permissions. The existing wrapper would remain a shared integration capability; new apps should not create their own SOAP conversion or privileged credential store.
 
-Place production HR write credentials in a restricted execution boundary from the beginning. General research tools and reporting workers should not inherit those credentials. Use a distinct workload identity, scoped backend permissions, authenticated service-to-service calls, and restricted ingress. Execution independently validates the human actor and approved proposal; a trusted core caller cannot supply arbitrary authority. The existing wrapper can remain separately operated; avoid creating a new wrapper instance for each app. Its user, ISU, and OAuth support is a confirmed capability reported by the user, not yet verified by inspection.
-
-Microsoft describes single deployments as suitable for many internal apps and distinguishes logical layers from physical deployment tiers. This supports a modular starting point, not a prohibition on services. [Application architecture guidance](https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures)
-
-### When to split a module into a service
-
-Split when evidence shows a separate privilege boundary, data jurisdiction, scaling profile, availability requirement, independent team/release lifecycle, or incompatible runtime. High-volume exports and payroll-sensitive execution are stronger reasons than the fact that two screens were generated separately.
-
-The tradeoff is explicit: one application simplifies deployment and shared behavior but shares release cadence and process failures. Services improve independent operation at the cost of network failures, distributed tracing, API compatibility, more releases, and support overhead.
-
-## 3. Azure hosting choice
-
-My initial preference is **Azure Container Apps if container operations are already supported**, with App Service an equally credible simpler choice for a web-centric estate. Do not adopt both solely to demonstrate flexibility. Benchmark representative interactive, report, and integration workloads before committing.
-
-| Option | Use it for | Do not assume |
+| Hosting candidate | Fit | Selection criterion |
 |---|---|---|
-| Container Apps | Containerized portal/API, MCP adapter, independently scaled worker | Every feature requires its own container app or environment |
-| App Service | Conventional internal web portal and APIs, especially an existing enterprise platform | Each web app needs its own App Service plan |
-| Functions | Queue handlers, schedules, callbacks, reconciliation, small event-driven integrations | Each function is a microservice, or every plan has identical scaling and timeout behavior |
-| Container Apps Jobs | Finite container tasks, scheduled exports, batch transformations | A job should host the always-available web portal |
-| AKS | Requirements that justify Kubernetes control and existing platform ownership | Kubernetes is required for a collection of internal apps |
+| **AWS ECS/Fargate** | Managed container services for the application and workers | Prefer if our supported AWS application platform and wrapper connectivity fit |
+| **Azure Container Apps** | Managed container applications, workers and finite jobs | Prefer if our supported Azure platform and scaling/network requirements fit |
+| **Azure App Service** | Conventional web/API applications | Strong alternative where it is already the supported hosting standard |
+| **Functions/Lambda** | Scheduled reconciliation, queue handlers and bounded event-driven work | Use for the execution pattern, not as a compulsory host for every app/tool |
+| **Existing Kubernetes platform** | Requirements already served by a supported cluster | Reuse where justified; this initiative does not by itself justify building cluster operations |
 
-Microsoft distinguishes general container hosting, web-app hosting, and event-driven functions. The execution model should determine the choice. [Azure comparison](https://learn.microsoft.com/en-us/azure/container-apps/compare-options)
+The recommendation is to select **one supported application platform** for the first implementation. Managed containers provide a useful default for the API and worker pattern; App Service may be simpler in an established web-app estate. [Azure hosting comparison](https://learn.microsoft.com/en-us/azure/container-apps/compare-options), [ECS service scaling](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-auto-scaling.html)
 
-**Sharing infrastructure is normal.** Several Container Apps and jobs can share an environment. Compatible App Service applications can share a paid plan and its compute. These remain separate app resources, but need not be separate infrastructure stacks. Shared resources introduce contention and shared operational boundaries. A shared Container Apps environment is not a strong network/hardware isolation boundary between mutually untrusted workloads; separate environments or stronger isolation may be necessary. A resource group is management organization, not runtime isolation. [Container Apps environments](https://learn.microsoft.com/en-us/azure/container-apps/environment), [App Service plans](https://learn.microsoft.com/en-us/azure/app-service/overview-hosting-plans)
+Keep production and nonproduction identities/data separate. Persist approvals, execution records and report state outside application replicas. Scale interactive requests separately from workers, and apply backend-wide concurrency limits across all replicas. Long reports should return a job reference with authorized status/download operations. Queues need bounded retries, backlog monitoring and controlled replay. Replica growth must not overwhelm Workday or multiply retries across layers.
 
-Functions are grouped into function apps for deployment/configuration. Avoid mixing functions requiring materially different secrets or permissions in the same app. Scaling behavior depends on the hosting plan. [Functions practices](https://learn.microsoft.com/en-us/azure/azure-functions/functions-best-practices)
+Regional deployments should follow processing requirements and measured latency, with approved failover and one authoritative execution record per transaction. Contractor entitlements and identity mapping require explicit support. Sharing standards does not require one worldwide database.
 
-### Illustrative first deployment
+## 4. Make rapid development repeatable
 
-Use separate production and nonproduction boundaries. Within each approved production region/trust domain, start with a core web/API deployment, restricted transaction execution, and a worker only if needed. Reuse established identity, registry, secrets, monitoring, gateway, queue, and data services. The exact resource count follows existing assets and security boundaries; this is not a fixed bill of materials.
+A supported starter template should include corporate sign-in, server-side authorization, standard UI/accessibility components, typed API contracts, synthetic fixtures, structured errors, redacted telemetry and a tested pipeline. It should make the normal delivery path faster than building those controls from scratch.
 
-A dozen HR utilities could be routes/modules within the core application rather than a dozen independent stacks. An isolated app can still share appropriate platform services. Arbitrary generated code or experimental uploads must not run inside the shared production process or receive its managed identity.
+| Change class | Proposed path |
+|---|---|
+| Prototype with synthetic data | Isolated development environment, short-lived preview, no production credentials |
+| Existing module change within its approved scope | Automated checks, maintainer review and normal deployment; no repeat architecture review for cosmetic changes |
+| New data source, permission, backend write or regional processing | Explicit operation/data-flow review plus targeted security, integration and recovery tests |
+| Runtime AI feature | Normal application controls plus versioned prompts/tools/knowledge configuration, behavioral evaluations and monitored outcomes |
 
-Run long reports asynchronously: submit, receive a job ID, check status, retrieve an authorized result. Apply job ownership, data entitlements, TTL, export size limits, and cancellation. Container Apps supports finite manual, scheduled, and event-triggered jobs. [Jobs documentation](https://learn.microsoft.com/en-us/azure/container-apps/jobs)
+AI can propose code, tests and fixes. A named maintainer must understand and own the result. Generation should produce small reviewable changes, not a large unexamined application. Review should focus on business rules, permissions, dependencies and failure behavior rather than whether code was written by a person or a model.
 
-Measure cold-start latency, concurrency, memory, report volume, logging/storage costs, and minimum replicas. Scale-to-zero and shared compute do not establish that a design is cheapest. Assess networking, gateway, monitoring, egress, licensing, and operational costs as well as CPU charges.
+Preview environments should expire automatically and use synthetic data. A prototype graduating to production needs an operating owner and support path. Experimental server code must not be dynamically loaded into the shared production application.
 
-## 4. Central authentication, specific authorization
+## 5. GitLab repository and control model
 
-Use the corporate IdP and shared identity libraries/policies. Prefer managed identities for Azure workload access and supported delegated user credentials for user-scoped backend operations. Keep environment-specific and privilege-specific workload identities. Do not create a custom password system or one all-powerful shared application credential.
+### Proposed organization
 
-Central authentication can provide a consistent sign-in experience; each protected API still validates tokens and enforces its audience, scopes, and current permissions. An authenticated HR employee is not entitled to every report, worker, country, or transaction. Enforce row/population, field, role, regional, and purpose restrictions server-side, including direct API calls that bypass Claude or the portal.
+Start with one product repository for the related application modules and deployables, plus separately controlled CI components and a production release project. Security policies can use the supported policy repository mechanism. Keep infrastructure code with the service or in an existing platform repository according to ownership. Split repositories when access or independent lifecycle requires it, not for every screen.
 
-Read-only reporting is sensitive too. Apply access filtering before data reaches the model; authorize downloads separately; prevent broad exports and small-cohort disclosure where policy requires it. Audit report parameters, source freshness, metric definitions, and recipients. Use approved reporting datasets/semantic APIs for broad analytics rather than unbounded SOAP calls against operational HR services. Reserve live lookups for freshness requirements that justify them.
+Use short-lived branches and merge requests into a protected default branch. Disable ordinary direct pushes to that branch. Required reviewers should cover authorization, credential handling, database migrations, infrastructure and pipeline changes. Prevent author/committer self-approval and per-MR rule overrides, and reset approvals after relevant changes. Review overlapping branch rules and privileged roles so direct-push permissions cannot bypass the MR path. [Merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/), [protected branches](https://docs.gitlab.com/user/project/repository/branches/protected/)
 
-Skills and connector descriptions guide behavior; they do not grant permissions. Avoid putting unrestricted web research and powerful HR writes in one broadly privileged tool catalog. Retrieved content and uploaded files remain untrusted inputs.
+Reusable pipeline components should be pinned to reviewed versions, with explicit inputs. Path-based child pipelines can shorten feedback for a monorepo, but shared identity/policy/library changes must trigger every affected consumer’s tests. Required checks must not disappear because of a path filter. Configure child-pipeline status propagation, such as `strategy: mirror` where supported, so a successful trigger cannot hide a failed child pipeline. [CI/CD components](https://docs.gitlab.com/ci/components/), [downstream pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/)
 
-An ISU authenticated using OAuth is still a service identity. When it executes, audit both the initiating human and service actor; enforce human authorization independently. Corporate IdP identity also does not prove which Claude organization hosts the conversation. The earlier account/channel and regional release gates remain applicable.
+### Enforcement, not only configuration
 
-## 5. A practical SDLC for AI-assisted apps
+| Control | Proposed GitLab implementation |
+|---|---|
+| Reviewed source | Protected branches, successful MR pipeline and required approval rules; protect ownership and pipeline configuration |
+| Mandatory checks | Centrally maintained pipeline components; pipeline execution policies where licensed, or an independently controlled promotion gate that checks required evidence |
+| Production release | Protected production environment and deployment approvals where available; tightly limited deployers |
+| Cloud authentication | Job ID tokens exchanged through OIDC for short-lived, narrowly scoped cloud credentials |
+| Concurrent releases | `resource_group` for each deployment target and outdated-deployment prevention; one coordinated deployment path per shared target |
+| Auditability | Record source commit, artifact digest, test/eval results, approvals, configuration version and deployed environment |
 
-Offer a supported starter template so makers spend time on the HR problem rather than inventing authentication, logging, error handling, and deployment. It should include standard UI, API contracts, synthetic fixtures, authorization middleware, telemetry redaction, dependency policy, tests, and a reusable pipeline.
+Reusable includes alone are not enforcement: someone able to change application CI configuration may remove them. If native enforcement is unavailable, a protected release project/job can validate evidence for the exact artifact and hold the only production deployment identity. Its permissions and trigger inputs need review so application jobs cannot bypass it.
 
-| Stage | Required outcome | Accountable owner |
-|---|---|---|
-| Intake | Named users, problem, data classification, access rules, success criteria, owner | HR product/process owner |
-| Prototype | Synthetic data, constrained development environment, no production credentials | Maker with engineering support |
-| Engineering handoff | Code understood, business rules documented, dependencies reviewed | Named engineering maintainer |
-| Pull request | Tests and security gates pass; independent review | Code owner and relevant specialists |
-| Staging | Identity, integration, abuse, accessibility, and process tests | Engineering + HR acceptance owner |
-| Release | Approved immutable artifact, rollback/recovery plan, support coverage | Release owner |
-| Operate/retire | Monitoring, vulnerability remediation, entitlement review, expiry/retirement | Service owner |
+GitLab capabilities depend on the installed version and tier. Required approval rules, Code Owner enforcement and deployment approvals require applicable Premium/Ultimate features; pipeline execution policies are Ultimate. Scanner availability and native security reporting also vary. Confirm these capabilities against our version/tier and retest after material upgrades. Deployment approval and starting the approved deployment job are separate GitLab steps; the release runbook should identify who may perform each. [Deployment approvals](https://docs.gitlab.com/ci/environments/deployment_approvals/), [pipeline execution policies](https://docs.gitlab.com/user/application_security/policies/pipeline_execution_policies/)
 
-Let HR makers create prototypes and submit changes. Production ownership must remain explicit. AI can draft code and fixes, but it must not approve its own privilege changes or production release. A functioning demo is not evidence that access controls, error paths, or migrations are correct.
+Production and test runners should have separate trust boundaries. Untrusted MR code must not run with production credentials or on a runner retaining production access. Use isolated ephemeral build execution where practical, restrict job-token access, pin CI dependencies, and prevent secrets leaking through logs or artifacts. A masked variable alone does not protect a secret from malicious job code.
 
-Use lightweight risk tiers: approved productivity use; configured integrations; reusable applications; privileged HR writes. Ordinary research should not require the same review as a new integration or write capability. Reuse an approved control set and require review of material changes rather than restarting every approval for every cosmetic change.
+GitLab ID tokens can authenticate to supported cloud services. Trust should constrain issuer, audience, project and permitted ref/environment claims supported by the provider; scope the resulting role to the deployment target. Test the actual token claims from our GitLab installation. [GitLab cloud authentication](https://docs.gitlab.com/ci/cloud_services/)
 
-## 6. CI/CD and security scanning
+Production identity must be available only through the controlled deployment path, including when native policies and approvals are enabled. The recommended release project would hold reviewed deployment configuration, accept an allowlisted artifact reference, verify its evidence, and avoid executing application-supplied deployment scripts. Cloud trust should be constrained to that project and its approved ref. Test that an unrelated job cannot obtain the production role by omitting the protected environment or changing its name. OIDC issues credentials; it does not itself prove release approval. [GitLab AWS OIDC](https://docs.gitlab.com/ci/cloud_services/aws/), [protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
 
-The following is a proposed pipeline, not a configuration already enabled in ResearchExamples.
+## 6. Proposed pipeline and AI lifecycle
 
 ```mermaid
 flowchart LR
-    Change[AI-assisted change] --> PR[Pull request]
-    PR --> Checks[Tests and security checks]
-    Checks --> Review[Required independent review]
-    Review --> Build[Build immutable artifact and provenance]
-    Build --> Stage[Deploy staging and run acceptance tests]
-    Stage --> Release[Protected release approval]
-    Release --> Prod[Progressive production rollout]
-    Prod --> Monitor[Monitor and remediate or roll back]
+    MR[Merge request] --> Checks[Fast tests and applicable security checks]
+    Checks --> Review[Required review and protected merge]
+    Review --> Build[Build and scan release artifact]
+    Build --> Stage[Deploy same digest to staging]
+    Stage --> Accept[Integration, recovery and runtime AI evaluations]
+    Accept --> Gate[Protected production release gate]
+    Gate --> Deploy[Deploy candidate and enable pilot cohort]
+    Deploy --> Observe[Check technical and business outcomes]
+    Observe --> Decision{Release criteria met?}
+    Decision -->|Yes| Expand[Expand exposure]
+    Decision -->|No| Stop[Disable feature or route back and reconcile]
 ```
 
-| Check | What to implement | What it does not prove |
+The release artifact should be built from the reviewed merge commit, with required checks rerun for that exact revision. Scan and test that artifact, then promote the same digest through staging and production. Environment settings and secret references remain separate controlled inputs. A pre-merge preview is useful feedback, not the production release artifact.
+
+| Check | Proposed coverage |
+|---|---|
+| Fast engineering checks | Build/types/lint, module dependency rules, unit and API contract tests |
+| Business/security tests | Wrong worker and population, field restrictions, revoked access, direct API bypass, report ownership, tampered approval, replay and timeout after commit |
+| Static/dependency/secret checks | Language-appropriate SAST, dependency vulnerabilities/licenses, repository and pipeline secret detection |
+| Infrastructure and image checks | IaC identity/network rules, built image and base layers, software bill of materials and provenance |
+| Staging checks | Authenticated dynamic testing, integration, accessibility, performance, migration compatibility and recovery |
+| Runtime AI evaluations | Tool selection, ambiguous requests, source support, injection resistance, regional policy, repeated trials and safe escalation |
+
+Explicitly enable the required checks for merge-request pipelines and for the release revision. Require successful pipelines and do not treat skipped pipelines as successful. Central policy pipelines and child pipelines must contribute their failures to the release gate.
+
+A successful scan job may still report vulnerabilities. The release gate should check both **execution evidence** and the agreed findings policy. Missing, canceled, skipped or failed required checks must block promotion; `allow_failure` must not neutralize a required gate. Exceptions need a named owner, reason, mitigation and expiry. Verify provenance against the expected build identity; a signed artifact is not evidence of correct business behavior.
+
+For AI features, version prompts, tool schemas, model configuration, knowledge references and evaluation cases with the application. Evaluate actual backend outcomes for writes and calibrate answer-quality graders against human review. A generated deterministic app needs conventional tests; a runtime model adds behavioral tests. The [evaluation plan](../../evaluation-and-success-plan.md) defines the global scorecard and test coverage.
+
+## 7. Blue-green, canary and feature exposure
+
+These techniques solve different problems. Blue-green provides two application versions and a traffic switch. Canary exposes a candidate to a limited share of traffic. Feature flags control which capabilities users can access. We can combine them, but should add only the mechanisms we can operate and test.
+
+| Strategy | Best use here | Main constraint |
 |---|---|---|
-| Build, lint, types | Supported language/toolchain checks, locked dependencies | Correct business behavior |
-| Functional and authorization tests | Worker/population denials, role revocation, direct API bypass, report ownership, approval tampering, duplicate writes | Every possible authorization edge case |
-| SAST | CodeQL or an approved language-appropriate analyzer | Correct HR policy or absence of vulnerabilities |
-| Dependencies | Dependency review, vulnerability and license policy, update automation | That an unflagged package is trustworthy |
-| Secrets | Secret scanning/push protection plus CI scanning suited to the repository | That every unknown credential format is detected |
-| IaC | Scan infrastructure changes and enforce network/identity policies | Actual deployed state remains compliant without drift checks |
-| Container image | Scan the built image/base layers; produce an SBOM and provenance | Runtime behavior is safe merely because the image is signed |
-| Authenticated DAST | Exercise the staged app with appropriate roles and approved test targets | Correct row-level/business authorization without targeted tests |
-| AI evaluations | Prompt injection, source attribution, tool selection, data leakage, ambiguous requests and abstention | Deterministic behavior on every future input |
+| **Rolling deployment** | Small backward-compatible changes to the core or workers | Old/new versions coexist; request and job draining must work |
+| **Blue-green deployment** | Core releases where validating an idle candidate and switching routing provides useful recovery | Temporary extra capacity; both versions must tolerate the same live schema and compatible sessions |
+| **Traffic canary** | Read APIs or sufficiently busy services with useful error/latency signals | Random request percentages are not stable user cohorts; small traffic can produce weak evidence |
+| **Cohort feature flags** | New HR utilities, region-specific behavior and controlled activation of write operations | Server-enforced eligibility and current authorization still apply; flag changes are production changes |
 
-Make relevant checks required through branch rules/rulesets. Merely displaying scanner findings does not block merging. Protect the rules themselves, restrict routine administrator/bot bypass, and require renewed review after material changes. Use an explicit aggregate gate to verify every required scan actually ran and passed: skipped/neutral GitHub checks can otherwise count as successful. Fail that gate on missing/skipped required scans and apply an agreed severity policy. Exceptions need a named risk owner, reason, compensating control, and expiry; never silently turn off the gate to ship.
+**Recommended starting combination:** deploy compatible code with new features disabled; validate it; enable a small named authorized cohort; compare outcomes and expand. Use blue-green for the application/API if our chosen host makes the extra capacity and routing manageable. Otherwise use a rolling deployment. Add percentage canaries for appropriate services after we have baseline metrics and tested routing.
 
-Code scanning supports automated vulnerability analysis, with language and plan prerequisites to verify. SCA and secret scanning require their own coverage checks; revoke exposed credentials rather than only deleting them from code. [Dependency review](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependency-review), [secret alerts](https://docs.github.com/en/code-security/concepts/secret-security/about-alerts). [GitHub code scanning](https://docs.github.com/en/code-security/concepts/code-scanning/code-scanning)
+For HR writes, a pilot should be tied to authorized users and operations, with transaction caps and an immediate server-side disable control. Do not mirror or replay production writes to compare versions. Approval records must bind the operation/policy version; upgrades cannot silently change the meaning of an outstanding approval.
 
-Protect pipeline files, authorization code, tool manifests, infrastructure, and shared libraries with designated reviewers. Keep PR jobs unprivileged; do not run untrusted contributed code with production credentials. Pin external actions to reviewed immutable revisions, minimize job token permissions, and use isolated/ephemeral runners where appropriate. Do not give exploratory coding agents deployment credentials. In particular, never execute untrusted PR code through a privileged `pull_request_target` job. [Actions hardening](https://docs.github.com/en/actions/reference/security/secure-use)
+GitLab orchestrates deployment and records the environment, but the host/load balancer controls traffic. Azure Container Apps supports revision traffic splitting; App Service supports deployment slots on eligible plans. ECS supports native canary deployment for compatible service configurations. Select and test the actual mechanism instead of assuming a GitLab environment name implements blue-green. [Container Apps traffic splitting](https://learn.microsoft.com/en-us/azure/container-apps/traffic-splitting), [App Service slots](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots), [ECS canary deployment](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deploy-canary-service.html)
 
-For GitHub Actions to Azure, use OIDC federation instead of stored long-lived deployment secrets. Bind trust to the intended repository and protected environment/ref, and scope Azure permissions to deployment targets. OIDC changes credential issuance; it does not replace release authorization. [GitHub Azure OIDC](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure)
+For Container Apps, weighted multi-revision routing should not be treated as a stable user cohort; its documented session affinity is limited to single-revision mode. Keep multistep approval state external and compatible across versions. [Session affinity](https://learn.microsoft.com/en-us/azure/container-apps/sticky-sessions)
 
-Build once from reviewed source and promote the same artifact digest through staging and production. Authenticate artifact provenance, scan that artifact, and preserve the record of source commit, checks, approvals, environment, and deployed digest. Use infrastructure as code and detect drift.
+A proposed rollout would check the candidate with non-mutating probes, keep schedulers and write consumers inactive until their ownership is established, enable the pilot, then expand only after sufficient observations. Set observation windows, minimum volume and abort thresholds before release. Low-traffic or delayed-approval scenarios need explicit acceptance evidence, not a short green dashboard.
 
-Required environment reviewers and other protections depend on GitHub plan and repository visibility. For private/internal repositories, required environment reviewers need the appropriate Enterprise entitlement; listing several reviewers normally requires one of them, not multiple independent approvals. If policy demands two distinct approvals, explicitly implement and test that requirement. Verify Code Security and Secret Protection entitlements as well. Bind Azure trust so another workflow cannot bypass the protected environment. [Deployment protections](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments). Confirm the company's entitlements before treating the pipeline design as enforceable. The existing private research repository is a document store, not proof of an enterprise software-delivery control plane.
+Abort conditions should include any wrong-user disclosure, unauthorized write, duplicate transaction or missing approval evidence; material error/latency regressions; and growing uncertain-execution or queue backlogs. Automated traffic rollback can help with technical failures. Transaction incidents may require disabling writes and reconciliation rather than simply moving traffic.
 
-## 7. Deployment, operations, and global scope
+## 8. Recovery and controls against failure
 
-Use staged releases, readiness checks, health metrics, and feature flags. Container Apps revisions or supported App Service deployment slots can assist rollout, but configure their behavior deliberately. Revisions and deployment slots are release mechanisms, not sufficient production/nonproduction isolation boundaries; isolate test data and credentials in separate staging resources as required. Keep database changes backward-compatible during mixed-version operation; rolling back an image does not undo a migration or an HR transaction.
+We cannot make the platform failure-proof. We can make changes bounded, detect failures quickly and demonstrate recovery before release.
 
-Assign an owner and cost center to every reusable app/module. Record supported regions, users, data sources, permissions, deployed version, lifecycle, SLO, and recovery procedure in a catalog. New modules should inherit tested platform defaults. Changes to shared identity or policy require broader regression tests because their impact crosses modules.
+| Failure | Proposed protection and recovery |
+|---|---|
+| A pipeline omits checks or changes their rules | Independently enforced release policy validates required evidence for the artifact |
+| An older pipeline deploys after a newer one | Serialize deployment targets and prevent outdated jobs; use an explicit reviewed recovery release for rollback |
+| A new version misbehaves | Disable the affected capability or route to the prior compatible version; preserve incident evidence |
+| Old/new versions see different schemas | Expand-and-contract migrations, compatible readers/writers and a tested compatibility window |
+| Both blue/green workers consume jobs or schedules | Exclusive schedule ownership where required, durable execution claims and idempotency; planned draining and handover |
+| Workday accepts a write but the response is lost | Mark the outcome uncertain, query authoritative status, reconcile before resubmission |
+| Restoring our database loses a recent execution record | Pause affected writes and reconcile against backend outcomes before resuming |
+| A region fails | Approved failover with preserved execution ownership and deduplication; otherwise pause affected work |
 
-Use regional deployment boundaries where data-flow requirements justify them. Shared platform means shared standards and tooling, not necessarily one worldwide runtime or database. Consider model processing, developer prompts, logs, backups, support access, and failover separately. A European app host does not make a Claude conversation Europe-only.
+Queue delivery may repeat. A durable claim helps coordinate workers, but cannot alone guarantee exactly-once writes to another system. Version job payloads, reauthorize at execution, and send references rather than credentials in queue messages. Database restoration and code rollback cannot reverse an accepted HR transaction; some corrections require a compensating business process.
 
-Separate production from prototypes. Sandbox generated code with denied-by-default secrets/network access and explicit data handling. Never dynamically load unreviewed generated server code into the HR production application.
+A feature flag should have an owner, audit trail, expiry/removal plan and a safe default if evaluation fails. UI-only flags do not protect APIs. Routine rollback should not require turning off authorization or granting emergency broad credentials.
 
-## 8. What other companies actually demonstrate
+GitLab provides deployment serialization and outdated-job controls; these must be configured together with the chosen recovery procedure. A project-local `resource_group` is not a cross-project global lock. [Resource groups](https://docs.gitlab.com/ci/resource_groups/), [deployment safety](https://docs.gitlab.com/ci/environments/deployment_safety/)
 
-| Company | Public evidence | Transferable lesson and limitation |
+## 9. What other companies show
+
+| Organization | Documented practice | Useful lesson |
 |---|---|---|
-| Jamf | Anthropic's case study describes Claude Enterprise for broad employee work, Bedrock for developer-controlled workflows, and three review paths for ordinary tools, configured skills/MCP, and custom APIs. It includes HR use cases and employee-built dashboards. | Closest match to this broader vision: enable users while separating delivery paths. Vendor-reported outcomes; AWS rather than Azure; not an independently verified HR-write control design. [Case study](https://claude.com/customers/jamf) |
-| Zapier | Anthropic describes cross-functional Claude use, rapid prototypes, and a Slack-triggered coding flow that creates a merge request for team review. | Fast creation can feed an established review process. Its internal agent count is not a count of microservices, HR apps, or independently audited deployments. [Case study](https://claude.com/customers/zapier) |
-| Block | Anthropic describes its goose agent serving multiple job profiles, with natural-language analytics, prototypes, and operations tasks connected through MCP. | Evidence for a broad agent-and-tools workspace. The interface is goose, not Claude Desktop; the case does not prove a single delegated identity across all systems. [Case study](https://claude.com/customers/block) |
-| Shopify | Its engineering team documented modularizing its large Rails monolith, with explicit components, interfaces, and ownership. | Modularity does not require a service per feature. This is historical 2020 architecture evidence, not a claim about current Shopify topology or AI-built HR apps. [Engineering article](https://shopify.engineering/shopify-monolith) |
+| **Jamf** | Anthropic’s case study describes employee-built dashboards and different governance paths for ordinary use, configured integrations and custom API applications. [Case study](https://claude.com/customers/jamf) | Match review depth to the change; give reusable app development a supported path. Vendor-reported evidence, not an audit of its delivery controls. |
+| **Shopify** | Its engineering account describes modularizing a large application with component contracts and automated dependency checks, including lessons from overly connected modules. [Engineering article](https://shopify.engineering/shopify-monolith) | Use enforced boundaries within a shared application before creating independent services. Historical architecture evidence, not a claim about its current topology. |
+| **monday.com** | Its engineering guest post describes version-controlled evaluators, CI/CD synchronization and multi-turn monitoring for service agents. [Engineering account](https://www.langchain.com/blog/customers-monday) | Treat evaluation logic as maintained code and feed observed failures back into testing. The published system uses LangSmith; it is not a GitLab implementation blueprint. |
 
-These sources support broad employee enablement, controlled paths from prototype to production, and deliberate module boundaries. They do not establish one universal architecture, exact cost savings for this company, or that all companies deploy AI-built apps on Azure Functions. The proposed Azure design is our recommendation informed by platform capabilities.
+These examples inform the proposed approach. Our GitLab controls and HR transaction guarantees still need their own implementation and tests.
 
-## 9. What to do first
+## 10. First implementation and decision points
 
-1. Adopt the expanded HR workspace vision and move Copilot Studio to the future-agent track.
-2. Inventory existing Azure hosting, corporate identity, CI/CD, security tooling, and licenses before introducing new infrastructure.
-3. Build one supported application template and reusable pipeline with engineering/security ownership.
-4. Pilot three outputs: a sourced HR research workflow, an authorized report/dashboard, and one bounded transaction. Measure accuracy, access enforcement, operator effort, cost, and support burden separately.
-5. Host initial related app modules together; separate write execution and any heavy reporting worker by their actual requirements.
-6. Prove two operators with different access get different permitted results through Claude, browser, direct API, and export paths.
-7. Add a second region only after validating its data flow and HR semantics. Expand modules based on evidence, not number of generated prototypes.
+1. Select one representative read/report utility and one bounded write workflow. Define users, jurisdictions, contractor support, backend identities, outcomes and recovery.
+2. Confirm the supported hosting platform, GitLab version/tier, runner boundaries and available security tools. Choose enforceable controls, not aspirational configuration.
+3. Build one starter template and versioned pipeline component. Test direct-push and self-approval denial, a removed scanner, a failed child pipeline, an unapproved deployment, an unauthorized OIDC ref, a job bypassing the protected environment, and overlapping releases. Missing evidence must block promotion.
+4. Implement the pilot as modules, with independent write execution and a worker only where needed. Measure concurrency, backend calls and report demand before sizing production.
+5. Rehearse release and recovery: old/new compatibility, worker handover, failed rollout, token revocation, duplicate delivery and timeout after commit.
+6. Pilot one approved population, measure effort and verified outcomes, and expand by operation and region after acceptance. Keep a named maintainer and support route for every deployed capability.
 
-The goal is a small, reusable delivery platform that turns useful prototypes into maintained capabilities. It should make the approved path faster than building a disconnected application from scratch.
-
-## Review record
-
-Specialist research covered company precedents, Azure hosting, and SDLC/identity controls. Two follow-up reviewers checked the draft and requested clearer report retrieval, independent write-execution authorization, release-versus-environment isolation, and explicit verification that scans ran. These corrections are incorporated. Mermaid syntax and local document links were checked. No runtime, pipeline, licensing, or live HR integration was tested.
+The initial decisions are hosting, repository/control ownership, required GitLab entitlements or equivalent gates, the release strategy, and the first pilot’s scope and thresholds. Architecture review should revisit changes to these boundaries; routine work within them should use the established pipeline.

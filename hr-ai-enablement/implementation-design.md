@@ -704,13 +704,13 @@ Development should use scoped nonproduction access and synthetic data. Generated
 
 The release record should bind source commit, artifact digest, schema/policy versions, infrastructure/configuration version and required test results. Verify provenance against the intended repository and workflow; a verified attestation supplies evidence of build origin, not application safety. A skipped required scan is a failed release check unless a reviewed, time-limited exception is recorded. [GitHub artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations), [secured workload supply chain](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/workload-supply-chain)
 
-Use short-lived federated deployment credentials where supported, constrained to the repository, environment/ref and required cloud permissions. For GitHub Actions this can use OIDC to the selected cloud; it does not remove the need to protect workflows or approve production changes. [Azure OIDC](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure), [AWS OIDC](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)
+Use short-lived federated deployment credentials where supported, constrained to the repository, environment/ref and required cloud permissions. For GitLab, job ID tokens can federate to the selected cloud. Production credentials should be confined to the controlled release path described in the delivery plan. [GitLab cloud authentication](https://docs.gitlab.com/ci/cloud_services/)
 
 Deployments must preserve pending approvals, queued jobs and in-flight executions. Use compatible additive database/schema changes before removing old fields; test old/new code coexistence and graceful worker draining. Rollback can restore code, but it cannot undo a Workday transaction. A database restore can also lose evidence of external commits: pause affected writes and reconcile before resuming. [Safe deployment guidance](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/safe-deployments)
 
 Keep tool registration and infrastructure configuration in reviewed automation where APIs support it. If Desktop connector administration requires a manual step, record and verify that step rather than claim a fully automated release. No CI job should publish every newly discovered SOAP service into the production catalog.
 
-The earlier [rapid-development research](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md) provides supporting context; the cloud-neutral shortlist in this design supersedes its Azure-first framing.
+The [rapid application delivery plan](workstreams/02-rapid-development/hr-workspace-app-platform-and-sdlc.md) details the proposed GitLab controls, platform alternatives, cohort releases, blue-green/canary choices and recovery procedures.
 
 ## 14. Decisions we need to close
 
